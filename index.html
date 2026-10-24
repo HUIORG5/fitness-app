@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="练了吗">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<title>练了吗</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ======== 主界面（四个 Tab） ======== -->
+  <main id="screens">
+
+    <!-- 今天 -->
+    <section class="screen" id="screen-today">
+      <header class="nav">
+        <h1 class="large-title">练了吗</h1>
+        <span class="nav-right">
+          <button class="nav-btn nav-avatar" id="btn-open-profile" style="display:none" aria-label="我的资料">
+            <img id="nav-avatar-img" alt="头像">
+          </button>
+          <button class="nav-btn" id="btn-open-settings" data-icon="sliders" aria-label="设置"></button>
+        </span>
+      </header>
+      <div id="today-content"></div>
+    </section>
+
+    <!-- 动作库 -->
+    <section class="screen" id="screen-exercises">
+      <header class="nav">
+        <h1 class="large-title">动作库</h1>
+        <span class="nav-right">
+          <button class="nav-text" data-act="reset-exercises">重置</button>
+          <button class="nav-btn" id="btn-add-exercise" data-icon="plus" aria-label="自定义动作"></button>
+        </span>
+      </header>
+      <div class="search-bar">
+        <span class="search-ico" data-icon="search"></span>
+        <input id="exercise-search" type="search" placeholder="搜索动作" autocomplete="off">
+      </div>
+      <div class="chips" id="category-chips"></div>
+      <p class="ex-order-hint">按住右侧 ≡ 上下拖动可调整顺序，分类内的排序在「全部」里同样生效</p>
+      <div id="exercise-list"></div>
+    </section>
+
+    <!-- 历史 -->
+    <section class="screen" id="screen-history">
+      <header class="nav">
+        <h1 class="large-title">历史</h1>
+      </header>
+      <div id="history-list"></div>
+    </section>
+
+    <!-- 统计 -->
+    <section class="screen" id="screen-stats">
+      <header class="nav">
+        <h1 class="large-title">统计</h1>
+      </header>
+      <div id="stats-content"></div>
+    </section>
+  </main>
+
+  <!-- ======== 底部 Tab 栏 ======== -->
+  <nav id="tabbar">
+    <button class="tab active" data-tab="today"><span class="tab-ico" data-icon="calendar"></span>今天</button>
+    <button class="tab" data-tab="exercises"><span class="tab-ico" data-icon="dumbbell"></span>动作</button>
+    <button class="tab" data-tab="history"><span class="tab-ico" data-icon="list"></span>历史</button>
+    <button class="tab" data-tab="stats"><span class="tab-ico" data-icon="chart"></span>统计</button>
+  </nav>
+
+  <!-- ======== 训练中全屏界面 ======== -->
+  <div class="overlay" id="workout-view">
+    <header class="overlay-nav">
+      <button class="text-btn primary" id="btn-back-workout">返回</button>
+      <div class="overlay-title">
+        <input id="workout-name" type="text" maxlength="20" placeholder="训练名称">
+      </div>
+      <button class="text-btn primary" id="btn-finish-workout">完成</button>
+    </header>
+    <div class="workout-meta">
+      <span class="wm-vol" id="workout-volume">容量 0 kg</span>
+      <span class="wm-last" id="workout-last"><small>上组完成</small><b id="last-set-time">--:--</b></span>
+      <button class="nav-btn wm-settings" id="btn-workout-settings" data-icon="sliders" aria-label="训练设置"></button>
+    </div>
+    <div class="overlay-body" id="workout-body"></div>
+    <div class="workout-footer">
+      <button class="btn ghost" id="btn-add-exercise-to-workout"><span data-icon="plus"></span>添加动作</button>
+    </div>
+  </div>
+
+  <!-- ======== 训练详情 / 设置 等全屏子界面 ======== -->
+  <div class="overlay" id="sub-view">
+    <header class="overlay-nav">
+      <button class="text-btn primary" id="sub-back">返回</button>
+      <div class="overlay-title" id="sub-title"></div>
+      <div class="nav-btn-placeholder"></div>
+    </header>
+    <div class="overlay-body" id="sub-body"></div>
+  </div>
+
+  <!-- ======== 头像裁剪（上传前确认范围） ======== -->
+  <div class="overlay crop-overlay" id="crop-view" style="z-index:65">
+    <header class="overlay-nav">
+      <button class="text-btn" id="crop-cancel">取消</button>
+      <div class="overlay-title">调整头像</div>
+      <button class="text-btn primary" id="crop-ok">使用</button>
+    </header>
+    <div class="crop-wrap">
+      <div class="crop-stage" id="crop-stage">
+        <img id="crop-img" alt="">
+        <div class="crop-ring"></div>
+      </div>
+      <p class="crop-tip">拖动图片调整位置 · 拖动下方滑块缩放</p>
+      <input class="crop-zoom" id="crop-zoom" type="range" min="1" max="3" step="0.01" value="1">
+    </div>
+  </div>
+
+  <!-- ======== 设置新密码（邮箱重置链接回来） ======== -->
+  <div class="overlay" id="reset-view" style="z-index:70">
+    <div class="auth-wrap">
+      <div class="auth-brand">
+        <span class="auth-logo" data-icon="lock"></span>
+        <h1>设置新密码</h1>
+        <p>为账号 <b id="reset-email-text"></b> 设置一个新密码</p>
+      </div>
+      <input class="auth-input" id="reset-password" type="password" placeholder="新密码（至少 6 位）" autocomplete="new-password">
+      <input class="auth-input" id="reset-password2" type="password" placeholder="再输一次新密码" autocomplete="new-password">
+      <div class="auth-error" id="reset-error"></div>
+      <button class="btn big" id="reset-submit">保存新密码</button>
+      <button class="auth-skip" id="reset-cancel">取消，返回登录</button>
+    </div>
+  </div>
+
+  <!-- ======== 登录 / 注册全屏界面 ======== -->
+  <div class="overlay" id="auth-view" style="z-index:60">
+    <div class="auth-wrap">
+      <div class="auth-brand">
+        <span class="auth-logo" data-icon="dumbbell"></span>
+        <h1>练了吗</h1>
+        <p>记录每一组的进步</p>
+      </div>
+      <div class="seg" id="auth-tabs">
+        <button class="active" data-auth-tab="login">登录</button>
+        <button data-auth-tab="register">注册</button>
+      </div>
+      <input class="auth-input" id="auth-email" type="email" placeholder="邮箱" autocomplete="email" inputmode="email">
+      <input class="auth-input" id="auth-password" type="password" placeholder="密码（至少 6 位）" autocomplete="current-password">
+      <input class="auth-input" id="auth-nickname" type="text" placeholder="昵称（选填）" maxlength="16" style="display:none">
+      <div class="auth-error" id="auth-error"></div>
+      <button class="btn big" id="auth-submit">登录</button>
+      <div class="auth-links">
+        <button class="auth-link" id="auth-forgot">忘记密码？</button>
+      </div>
+      <button class="auth-skip" id="auth-skip">暂不登录，本地体验</button>
+      <p class="auth-note">登录后训练数据可云端备份、多设备同步<br>
+        继续即表示同意<a href="legal.html#terms" target="_blank">《用户协议》</a>与<a href="legal.html#privacy" target="_blank">《隐私政策》</a></p>
+    </div>
+  </div>
+
+  <!-- ======== 底部弹出层 ======== -->
+  <div class="sheet-backdrop" id="sheet-backdrop"></div>
+  <div class="sheet" id="sheet"><div class="sheet-handle"></div><div id="sheet-content"></div></div>
+
+  <!-- ======== 自定义确认框 ======== -->
+  <div class="alert-backdrop" id="alert-backdrop">
+    <div class="alert">
+      <div class="alert-title" id="alert-title"></div>
+      <div class="alert-msg" id="alert-msg"></div>
+      <div class="alert-actions">
+        <button class="alert-btn" id="alert-cancel"></button>
+        <button class="alert-btn primary" id="alert-ok"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <input type="file" id="avatar-file" accept="image/*" style="display:none">
+</div>
+
+<script src="js/storage.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/vendor/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/cloud.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
