@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v50";
+  const APP_VERSION = "v51";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -1679,7 +1679,7 @@
         '<div class="row"><span class="grow">云端同步</span><span class="val" id="sync-status">' + syncStatusHtml() + "</span></div>" +
         '<button class="row" data-act="change-avatar"><span class="grow">更换头像</span><span class="val">可裁剪</span></button>' +
         '<button class="row" data-act="logout" style="color:var(--red)"><span class="grow">退出登录</span></button>' +
-        '<button class="row" data-act="delete-account" style="color:var(--red)"><span class="grow">注销账号</span><span class="val">清空数据并退出</span></button>' +
+        '<button class="row" data-act="delete-account" style="color:var(--red)"><span class="grow">注销账号</span><span class="val">永久删除</span></button>' +
         "</div>";
     }
 
@@ -1974,8 +1974,8 @@
   /* ---------- 注销账号 ---------- */
   async function deleteAccount() {
     const ok = await confirmAction("注销账号？",
-      "将清空你的训练记录与动作库（云端+本机）并退出登录，数据无法恢复，建议先导出备份。如需彻底删除账号本身，请联系 trainingdiary@qq.com。",
-      "继续注销", true);
+      "账号将被永久删除：训练记录、自定义动作、训练计划、头像全部清除，云端与本机同时删除，且无法恢复。建议先导出备份。",
+      "永久删除", true);
     if (!ok) return;
     const loggedIn = Cloud.isLoggedIn();
     let removed = false;
@@ -2000,7 +2000,10 @@
     closeSub();
     renderAll();
     rerenderMe();
-    toast(removed ? "账号已彻底删除，感谢使用" : "已注销并清空数据，感谢使用");
+    // 只有服务端确认删掉了账号才说"彻底删除"，否则别让用户误以为删干净了
+    if (removed) toast("账号已彻底删除，感谢使用");
+    else if (loggedIn) toast("数据已清空，但账号未能彻底删除，请稍后重试");
+    else toast("已清空本机数据");
     showAuth();
   }
 
