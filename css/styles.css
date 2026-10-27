@@ -199,10 +199,10 @@ svg{display:block;}
 .ac-actions{display:flex;gap:10px;}
 .ac-actions .btn{height:46px;}
 
-.week-strip{display:flex;gap:10px;margin:4px 0 2px;}
-.ws-item{flex:1;background:var(--card);border-radius:14px;padding:11px 8px;text-align:center;box-shadow:var(--shadow);}
-.ws-item b{font-size:17px;display:block;font-variant-numeric:tabular-nums;}
-.ws-item small{font-size:11px;color:var(--text-2);}
+.week-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4px 0 2px;}
+.ws-item{background:var(--card);border-radius:14px;padding:11px 6px;text-align:center;box-shadow:var(--shadow);min-width:0;}
+.ws-item b{font-size:17px;display:block;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.ws-item small{font-size:11px;color:var(--text-2);white-space:nowrap;}
 
 .history-row{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:.5px solid var(--sep);width:100%;text-align:left;background:var(--card);}
 .history-row:last-child{border-bottom:none;}

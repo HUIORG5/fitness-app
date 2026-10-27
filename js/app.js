@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v56";
+  const APP_VERSION = "v57";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -134,15 +134,28 @@
     while (days.has(dayKey(cur))) { n++; cur = new Date(cur.getTime() - 86400000); }
     return n;
   }
-  function weekStats() {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    let count = 0, vol = 0;
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today.getTime() - i * 86400000);
-      const k = dayKey(d);
-      Store.data.workouts.forEach((w) => { if (dayKey(new Date(w.startedAt)) === k) { count++; vol += workoutVol(w); } });
-    }
-    return { count: count, vol: vol, streak: streakDays() };
+  // 某个时间区间内「有训练的天数」与总容量（同一天练两次只算一天）
+  function rangeStats(fromTs, toTs) {
+    const days = {};
+    let vol = 0;
+    Store.data.workouts.forEach((w) => {
+      if (w.startedAt < fromTs || w.startedAt > toTs) return;
+      days[dayKey(new Date(w.startedAt))] = 1;
+      vol += workoutVol(w);
+    });
+    return { days: Object.keys(days).length, vol: vol };
+  }
+  // 首页顶部六格：本周 / 本月 / 本年，统一按「训练天数」口径（原来本周算的是次数）
+  function homeStats() {
+    const now = new Date();
+    const end = now.getTime();
+    const today = new Date(now); today.setHours(0, 0, 0, 0);
+    return {
+      week: rangeStats(today.getTime() - 6 * 86400000, end),
+      month: rangeStats(new Date(now.getFullYear(), now.getMonth(), 1).getTime(), end),
+      year: rangeStats(new Date(now.getFullYear(), 0, 1).getTime(), end),
+      streak: streakDays(),
+    };
   }
 
   /* ---------- 提示 ---------- */
@@ -277,11 +290,15 @@
         '<span class="grow" style="color:var(--blue)">＋ 新建训练计划</span>' +
         '<span class="val">排好常练的组合</span></button></div>';
     }
-    const ws = weekStats();
+    const st = homeStats();
+    // 上排：本周训练天数 / 本周容量 / 本月容量；下排：本月训练天数 / 本年训练天数 / 连续天数
     html += '<div class="week-strip">' +
-      '<div class="ws-item"><b>' + ws.count + "</b><small>本周训练</small></div>" +
-      '<div class="ws-item"><b>' + fmtNum(U.kgToDisp(ws.vol)) + "</b><small>本周容量 " + U.cur() + "</small></div>" +
-      '<div class="ws-item"><b>' + ws.streak + "</b><small>连续天数</small></div></div>";
+      '<div class="ws-item"><b>' + st.week.days + "</b><small>本周训练</small></div>" +
+      '<div class="ws-item"><b>' + fmtNum(U.kgToDisp(st.week.vol)) + "</b><small>本周容量 " + U.cur() + "</small></div>" +
+      '<div class="ws-item"><b>' + fmtNum(U.kgToDisp(st.month.vol)) + "</b><small>本月容量 " + U.cur() + "</small></div>" +
+      '<div class="ws-item"><b>' + st.month.days + "</b><small>本月训练</small></div>" +
+      '<div class="ws-item"><b>' + st.year.days + "</b><small>本年训练</small></div>" +
+      '<div class="ws-item"><b>' + st.streak + "</b><small>连续天数</small></div></div>";
     const recent = d.workouts.slice().sort((a, b) => b.startedAt - a.startedAt).slice(0, 5);
     if (recent.length) {
       html += '<div class="section-title with-more"><span>最近训练</span>' +
