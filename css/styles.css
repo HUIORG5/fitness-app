@@ -47,6 +47,11 @@ body{
   -webkit-font-smoothing:antialiased;
 }
 button{font-family:inherit;border:none;background:none;color:var(--blue);cursor:pointer;touch-action:manipulation;}
+/* 长按按钮是用来连发加减的（重量/次数步进），不能让 iOS 弹出「拷贝 / 查询 / 翻译」文本菜单。
+ * 整页禁选防误选，但输入框要能正常编辑、选中、长按粘贴。 */
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+input,textarea{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
+button,label,.stepper,.switch{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 input{font-family:inherit;font-size:16px;}
 svg{display:block;}
 
