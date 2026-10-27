@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v59";
+  const APP_VERSION = "v60";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -1710,6 +1710,7 @@
     // 关于
     html += '<div class="section-title">关于</div><div class="list">' +
       '<div class="row"><span class="grow">当前版本</span><span class="val" id="app-ver">' + APP_VERSION + "</span></div>" +
+      '<button class="row" data-act="open-changelog"><span class="grow">更新记录</span><span class="val">每版改了什么</span></button>' +
       '<button class="row" data-act="check-update"><span class="grow">检查更新</span><span class="val">获取最新版</span></button>' +
       '<button class="row" data-act="force-refresh"><span class="grow">强制刷新</span><span class="val">版本没变时用</span></button>' +
       '<button class="row" data-act="open-legal" data-w="privacy"><span class="grow">隐私政策</span>' + icon("lock", 18) + "</button>" +
@@ -2307,6 +2308,7 @@
     "forgot-send": sendResetMail,
     "sheet-close": closeSheet,
     "delete-account": deleteAccount,
+    "open-changelog": () => { window.open("CHANGELOG.md", "_blank"); },
     "open-legal": (el) => { window.open("legal.html#" + (el.dataset.w || "privacy"), "_blank"); },
     "contact-me": () => { location.href = "mailto:trainingdiary@qq.com?subject=" + encodeURIComponent("练了吗 反馈"); },
   };
