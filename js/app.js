@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v55";
+  const APP_VERSION = "v56";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -144,18 +144,6 @@
     }
     return { count: count, vol: vol, streak: streakDays() };
   }
-  function last7() {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const out = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today.getTime() - i * 86400000);
-      const k = dayKey(d);
-      let v = 0;
-      Store.data.workouts.forEach((w) => { if (dayKey(new Date(w.startedAt)) === k) v += workoutVol(w); });
-      out.push({ label: WD[d.getDay()], value: U.kgToDisp(v), today: i === 0 });
-    }
-    return out;
-  }
 
   /* ---------- 提示 ---------- */
   let toastTimer = null;
@@ -236,7 +224,6 @@
     $$(".screen").forEach((s) => s.classList.toggle("active", s.id === "screen-" + name));
     if (name === "today") renderToday();
     if (name === "exercises") renderExercises();
-    if (name === "stats") renderStats();
     if (name === "me") renderMe();
   }
 
@@ -327,16 +314,21 @@
     const groups = {};
     list.forEach((e) => { (groups[e.cat] = groups[e.cat] || []).push(e); });
     const keys = order.filter((k) => groups[k]).concat(Object.keys(groups).filter((k) => order.indexOf(k) < 0));
+    const bests = bestMaps().e1;
     let html = "";
     keys.forEach((k) => {
       html += '<div class="section-title">' + k + "</div><div class=\"list\">" +
-        groups[k].map((e) =>
-          '<button class="row" data-act="open-exercise-detail" data-id="' + e.id + '" data-ex-id="' + e.id + '">' +
-          '<span class="grow">' + esc(e.name) +
-          (e.custom ? ' <span class="ex-cat">自定义</span>' : "") + "</span>" +
-          (e.type === "time" ? '<span class="val">' + typeTag(e.type) + "</span>" : "") +
-          '<span class="ex-drag" aria-label="拖动排序">' + icon("list", 16).replace('stroke-width="1.8"', 'stroke-width="2.4"') + "</span>" +
-          "</button>").join("") + "</div>";
+        groups[k].map((e) => {
+          const b = bests[e.name];
+          return '<button class="row" data-act="open-exercise-detail" data-id="' + e.id + '" data-ex-id="' + e.id + '">' +
+            '<span class="grow">' + esc(e.name) +
+            (e.custom ? ' <span class="ex-cat">自定义</span>' : "") + "</span>" +
+            // 最佳 e1RM 直接标在动作后面，不用再翻统计页
+            (b ? '<span class="ex-best">' + U.fmt(b.val) + "<small>" + U.cur() + "</small></span>" : "") +
+            (e.type === "time" ? '<span class="val">' + typeTag(e.type) + "</span>" : "") +
+            '<span class="ex-drag" aria-label="拖动排序">' + icon("list", 16).replace('stroke-width="1.8"', 'stroke-width="2.4"') + "</span>" +
+            "</button>";
+        }).join("") + "</div>";
     });
     // 被移除的内置动作单独列出来，仍可点进详情看历史成绩、也可单独恢复
     const hidden = Store.hiddenList();
@@ -559,57 +551,7 @@
     box.scrollTop = st;
   }
 
-  /* ================= 统计 ================= */
-  let trendEx = null;
-  function renderStats() {
-    const ws = Store.data.workouts;
-    const box = $("#stats-content");
-    if (!ws.length) {
-      box.innerHTML = '<div class="empty">' + icon("chart", 40) + "<b>暂无统计数据</b><p>完成训练后即可查看容量趋势与个人记录</p></div>";
-      injectIcons(box);
-      return;
-    }
-    const totalVol = ws.reduce((a, w) => a + workoutVol(w), 0);
-    const wk = weekStats();
-    const bests = bestMaps();
-    const prs = Object.keys(bests.e1).map((n) => ({ name: n, val: bests.e1[n].val, set: bests.e1[n].set, date: bests.e1[n].date }))
-      .sort((a, b) => b.val - a.val).slice(0, 6);
-
-    let html = '<div class="chart-box"><div class="cb-title">本周容量 <small>' + fmtVol(wk.vol) + "</small></div><div id=\"week-chart\"></div></div>";
-    html += '<div class="stat-grid">' +
-      '<div class="stat-card"><b>' + ws.length + "</b><small>总训练次数</small></div>" +
-      '<div class="stat-card"><b>' + fmtNum(U.kgToDisp(totalVol)) + '<span class="unit"> ' + U.cur() + "</span></b><small>总容量</small></div>" +
-      '<div class="stat-card"><b>' + wk.streak + "</b><small>连续天数</small></div>" +
-      '<div class="stat-card"><b>' + wk.count + "</b><small>本周训练</small></div></div>";
-
-    if (prs.length) {
-      html += '<div class="section-title">个人记录 · 最佳 e1RM</div><div class="list">' +
-        prs.map((p) =>
-          '<button class="pr-row" data-act="trend-ex" data-name="' + esc(p.name) + '">' +
-          '<span class="pr-ico">' + icon("trophy", 18) + "</span>" +
-          '<span class="grow"><b>' + esc(p.name) + "</b><small>" + U.fmt(p.set.kg) + " " + U.cur() + " × " + p.set.reps +
-          " 次 · " + fmtDate(new Date(p.date)) + "</small></span>" +
-          '<span class="pr-val">' + U.fmt(p.val) + "</span></button>").join("") + "</div>";
-    }
-
-    const exNames = Object.keys(bests.vol);
-    let pts = [];
-    if (exNames.length) {
-      const sel = trendEx && exNames.indexOf(trendEx) >= 0 ? trendEx : exNames[0];
-      pts = trendPoints(sel);
-      html += '<div class="section-title">动作趋势 · 单次最佳容量</div>' +
-        '<div class="chips" id="trend-chips">' +
-        exNames.map((n) => '<button class="chip' + (n === sel ? " active" : "") + '" data-act="trend-ex" data-name="' + esc(n) + '">' + esc(n) + "</button>").join("") +
-        "</div>" +
-        '<div class="chart-box"><div class="cb-title" id="trend-title">' + esc(sel) + " <small>最近 " + pts.length + " 次</small></div><div id=\"trend-chart\"></div></div>";
-    }
-    box.innerHTML = html;
-    injectIcons(box);
-    if ($("#week-chart")) Charts.barChart($("#week-chart"), last7());
-    if ($("#trend-chart")) Charts.lineChart($("#trend-chart"), pts);
-  }
-
-  /* 某个动作最近 10 次训练的“单次最佳容量” */
+  /* ================= 动作趋势 ================= */
   function trendPoints(name) {
     return Store.data.workouts
       .filter((w) => w.exercises.some((e) => e.name === name))
@@ -620,16 +562,6 @@
         const d = new Date(w.startedAt);
         return { label: d.getMonth() + 1 + "/" + d.getDate(), value: U.kgToDisp(best) };
       });
-  }
-
-  /* 切换动作时只更新图表本身：不整页重绘，滚动位置就不被打断 */
-  function switchTrend(name) {
-    trendEx = name;
-    $$("#trend-chips .chip").forEach((c) => c.classList.toggle("active", c.dataset.name === name));
-    const pts = trendPoints(name);
-    const t = $("#trend-title");
-    if (t) t.innerHTML = esc(name) + " <small>最近 " + pts.length + " 次</small>";
-    if ($("#trend-chart")) Charts.lineChart($("#trend-chart"), pts);
   }
 
   /* ================= 训练中 ================= */
@@ -688,11 +620,17 @@
     try { el.scrollIntoView({ block: "nearest" }); } catch (e) { el.scrollIntoView(false); }
   }
   function exCard(e, i, old) {
+    // 只在「本次最大 e1RM 的那一组」上打 PR：
+    //  - 同一重量重复几组，只有第一次达到最高值的那组标，不会连着标三行
+    //  - 后面又突破了更重的，最大组换人，前面轻的那组自然不再标
+    const e1s = e.sets.map((s) => setE1RM(s));
+    let curBest = 0, curBestIdx = -1;
+    e1s.forEach((v, k) => { if (v > curBest) { curBest = v; curBestIdx = k; } });
+    const prevBest = ((old.e1[e.name] || {}).val || 0);
+    const isNewPR = curBest > 0 && curBest > prevBest + 0.01;
+
     const rows = e.sets.map((s, si) => {
-      let runMax = 0;
-      for (let k = 0; k <= si; k++) runMax = Math.max(runMax, setE1RM(e.sets[k]));
-      const isPR = setE1RM(s) > 0 && setE1RM(s) === runMax &&
-        setE1RM(s) > ((old.e1[e.name] || {}).val || 0) + 0.01;
+      const isPR = isNewPR && si === curBestIdx;
       return '<tr><td class="set-idx">' + (si + 1) + "</td><td>" +
         '<button class="set-row-btn set-main" data-act="edit-set" data-i="' + i + '" data-si="' + si + '">' +
         setText(s, e.type) + (isPR ? '<span class="pr-tag">PR</span>' : "") + "</button></td>" +
@@ -1432,6 +1370,12 @@
   }
 
   /* ================= 动作详情 / 自定义动作 ================= */
+  // 一次训练里某个动作「最重的那组」（计时动作取最长），用于最近记录行的右侧值
+  function topSet(sets, type) {
+    if (!sets || !sets.length) return null;
+    const score = (s) => (type === "time" ? (s.sec || 0) : (s.kg || 0) * 10000 + (s.reps || 0));
+    return sets.reduce((a, s) => (score(s) > score(a) ? s : a));
+  }
   function openExerciseDetail(id) {
     const ex = Store.findExerciseAny ? Store.findExerciseAny(id) : Store.findExercise(id);
     if (!ex) return;
@@ -1448,19 +1392,41 @@
         (best ? '<div class="row"><span class="grow">最佳估算1RM</span><span class="val">' + U.fmt(best.val) + " " + U.cur() + "</span></div>" : "") +
         "</div>";
     }
+    // 单次最佳容量趋势（原来在统计页，现在跟着动作走）：一次训练只有一个点，没意义，攒到 2 次再画
+    const pts = trendPoints(ex.name);
+    const trendHtml = pts.length >= 2
+      ? '<div class="section-title">单次最佳容量 · 最近 ' + pts.length + ' 次</div><div class="chart-box"><div id="ex-trend-chart"></div></div>'
+      : '<p class="set-note" style="margin-top:14px">再练一次就能看到容量趋势</p>';
+    // 最近几次练这个动作的记录，点进去就是那天的训练详情
+    const recentHtml = ws.length
+      ? '<div class="section-title">最近记录</div><div class="list">' + ws.slice(0, 6).map((w) => {
+          const it = w.exercises.find((x) => x.name === ex.name);
+          const top = topSet(it.sets, ex.type);
+          const val = top
+            ? (ex.type === "time" ? fmtClock(top.sec || 0) : U.fmt(U.kgToDisp(top.kg || 0)) + " × " + (top.reps || 0))
+            : "—";
+          return '<button class="row" data-act="open-workout-detail" data-id="' + w.id + '">' +
+            '<span class="grow">' + fmtDate(new Date(w.startedAt)) +
+            '<span class="row-sub">' + it.sets.length + " 组 · 容量 " + fmtVol(exVol(it)) + "</span></span>" +
+            '<span class="val">' + val + "</span></button>";
+        }).join("") + "</div>"
+      : "";
+
     openSub("动作详情",
       '<div class="card card-pad" style="margin-top:12px;text-align:center">' +
       '<div style="font-size:21px;font-weight:800">' + esc(ex.name) + "</div>" +
       '<div style="color:var(--text-2);font-size:13.5px;margin-top:3px">' + ex.cat + " · " + (ex.type === "time" ? "计时动作" : "次数动作") +
       (ex.custom ? " · 自定义" : "") + (isHidden ? " · 已从动作库移除" : "") + "</div></div>" + statsHtml +
       (Store.data.activeWorkout && !isHidden ? '<button class="btn" data-act="join-active" data-id="' + ex.id + '">加入当前训练</button>' : "") +
+      trendHtml + recentHtml +
       (ex.custom
-        ? '<button class="btn danger" style="margin-top:10px" data-act="delete-custom-exercise" data-id="' + ex.id + '">删除此动作</button>'
+        ? '<button class="btn danger" style="margin-top:16px" data-act="delete-custom-exercise" data-id="' + ex.id + '">删除此动作</button>'
         : isHidden
-          ? '<button class="btn" style="margin-top:10px" data-act="restore-builtin" data-id="' + ex.id + '">恢复到动作库</button>' +
-            '<p class="set-note" style="margin-top:10px">已移除的动作不会出现在选择列表，但历史记录和统计都还在</p>'
-          : '<button class="btn danger" style="margin-top:10px" data-act="hide-builtin" data-id="' + ex.id + '">从动作库移除</button>' +
+          ? '<button class="btn" style="margin-top:16px" data-act="restore-builtin" data-id="' + ex.id + '">恢复到动作库</button>' +
+            '<p class="set-note" style="margin-top:10px">已移除的动作不会出现在选择列表，但历史记录和趋势都还在</p>'
+          : '<button class="btn danger" style="margin-top:16px" data-act="hide-builtin" data-id="' + ex.id + '">从动作库移除</button>' +
             '<p class="set-note" style="margin-top:10px">内置动作只是隐藏，历史记录不受影响，可在动作库右上角「重置」恢复</p>'));
+    if ($("#ex-trend-chart")) Charts.lineChart($("#ex-trend-chart"), pts);
   }
   function joinActive(id) {
     const ex = Store.findExercise(id);
@@ -2293,7 +2259,6 @@
     "custom-cat": (el) => { customDraft.cat = el.dataset.v; renderCustomDraft(); },
     "custom-type": (el) => { customDraft.type = el.dataset.v; renderCustomDraft(); },
     "save-custom-exercise": saveCustomExercise,
-    "trend-ex": (el) => switchTrend(el.dataset.name),
     "set-unit": (el) => { Store.data.settings.unit = el.dataset.v; Store.save(); rerenderMe(); renderAll(); },
     "set-theme": (el) => { Store.data.settings.theme = el.dataset.v; Store.save(); applyTheme(); rerenderMe(); renderAll(); },
     "export-data": exportData,
@@ -2494,7 +2459,6 @@
     renderToday();
     renderExercises();
     refreshHistoryIfActive();
-    renderStats();
     if (Store.data.activeWorkout) renderWorkout();
   }
 
