@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v54";
+  const APP_VERSION = "v55";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -218,6 +218,8 @@
     // 二级页里改过计划（新建/删除/改名）后，底下的今天页还是旧 DOM：
     // 返回时重绘一次，免得用户必须手动刷新才看到。保留滚动位置。
     refreshTodayIfActive();
+    // 从「全部历史」点进训练详情、在里面删了训练的话，返回时列表也要更新
+    refreshHistoryIfActive();
   }
   // 今天页当前可见时重绘它（别的 tab 不动，避免无谓重建）
   function refreshTodayIfActive() {
@@ -234,7 +236,6 @@
     $$(".screen").forEach((s) => s.classList.toggle("active", s.id === "screen-" + name));
     if (name === "today") renderToday();
     if (name === "exercises") renderExercises();
-    if (name === "history") renderHistory();
     if (name === "stats") renderStats();
     if (name === "me") renderMe();
   }
@@ -294,10 +295,11 @@
       '<div class="ws-item"><b>' + ws.count + "</b><small>本周训练</small></div>" +
       '<div class="ws-item"><b>' + fmtNum(U.kgToDisp(ws.vol)) + "</b><small>本周容量 " + U.cur() + "</small></div>" +
       '<div class="ws-item"><b>' + ws.streak + "</b><small>连续天数</small></div></div>";
-    const recent = d.workouts.slice().sort((a, b) => b.startedAt - a.startedAt).slice(0, 3);
+    const recent = d.workouts.slice().sort((a, b) => b.startedAt - a.startedAt).slice(0, 5);
     if (recent.length) {
-      html += '<div class="section-title">最近训练</div><div class="list">' +
-        recent.map(historyRow).join("") + "</div>";
+      html += '<div class="section-title with-more"><span>最近训练</span>' +
+        '<button class="st-more" data-act="open-all-history">全部历史 ›</button></div>' +
+        '<div class="list">' + recent.map(historyRow).join("") + "</div>";
     }
     c.innerHTML = html;
     injectIcons(c);
@@ -402,7 +404,7 @@
 
   // 当前最上层的可关闭浮层（不含登录页：滑掉它没有意义）
   function topLayer() {
-    const sels = ["#crop-view", "#reset-view", "#sheet", "#sub-view", "#workout-view"];
+    const sels = ["#crop-view", "#reset-view", "#sheet", "#sub-view", "#history-view", "#workout-view"];
     for (let i = 0; i < sels.length; i++) {
       const el = $(sels[i]);
       if (el && el.classList.contains("show")) return el;
@@ -415,6 +417,7 @@
     if ($("#reset-view").classList.contains("show")) { $("#reset-view").classList.remove("show"); return showAuth(); }
     if ($("#sheet").classList.contains("show")) return closeSheet();
     if ($("#sub-view").classList.contains("show")) return closeSub();
+    if ($("#history-view").classList.contains("show")) return closeHistoryView();
     if ($("#workout-view").classList.contains("show")) return backWorkout();
   }
 
@@ -515,13 +518,11 @@
   }
 
   /* ================= 历史 ================= */
-  function renderHistory() {
+  // 全部历史：底部 tab 已去掉「历史」，改为从今天页「最近训练」右侧进入的独立一层
+  function historyHtml() {
     const ws = Store.data.workouts.slice().sort((a, b) => b.startedAt - a.startedAt);
-    const box = $("#history-list");
     if (!ws.length) {
-      box.innerHTML = '<div class="empty">' + icon("list", 40) + "<b>还没有训练记录</b><p>完成第一次训练后会出现在这里</p></div>";
-      injectIcons(box);
-      return;
+      return '<div class="empty">' + icon("list", 40) + "<b>还没有训练记录</b><p>完成第一次训练后会出现在这里</p></div>";
     }
     const groups = {};
     ws.forEach((w) => {
@@ -532,11 +533,30 @@
     let html = "";
     Object.keys(groups).forEach((k) => {
       const vol = groups[k].reduce((a, w) => a + workoutVol(w), 0);
-      html += '<div class="section-title">' + k + " · 容量 " + fmtVol(vol) + "</div>" +
+      html += '<div class="section-title">' + k + " · " + groups[k].length + " 次 · 容量 " + fmtVol(vol) + "</div>" +
         '<div class="list">' + groups[k].map(historyRow).join("") + "</div>";
     });
-    box.innerHTML = html;
+    return html;
+  }
+  function openHistoryView() {
+    const box = $("#history-body");
+    box.innerHTML = historyHtml();
+    box.scrollTop = 0;
     injectIcons(box);
+    $("#history-view").classList.add("show");
+  }
+  function closeHistoryView() {
+    $("#history-view").classList.remove("show");
+  }
+  // 在历史里点进详情、删掉某条训练后返回：列表得跟着变，且保住滚动位置
+  function refreshHistoryIfActive() {
+    const v = $("#history-view");
+    if (!v || !v.classList.contains("show")) return;
+    const box = $("#history-body");
+    const st = box.scrollTop;
+    box.innerHTML = historyHtml();
+    injectIcons(box);
+    box.scrollTop = st;
   }
 
   /* ================= 统计 ================= */
@@ -2242,6 +2262,7 @@
     "filter-cat": (el) => { exFilter.cat = el.dataset.cat; renderExercises(); },
     "picker-cat": (el) => { picker.cat = el.dataset.cat; renderPicker(); },
     "pick-exercise": (el) => pickExercise(el.dataset.id),
+    "open-all-history": openHistoryView,
     "open-workout-detail": (el) => openWorkoutDetail(el.dataset.id),
     "repeat-workout": (el) => repeatWorkout(el.dataset.id),
     "share-workout": (el) => shareWorkout(el.dataset.id),
@@ -2297,6 +2318,7 @@
     $("#btn-finish-workout").addEventListener("click", finishWorkout);
     $("#btn-add-exercise-to-workout").addEventListener("click", openExercisePicker);
     $("#sub-back").addEventListener("click", closeSub);
+    $("#history-back").addEventListener("click", closeHistoryView);
     $("#sheet-backdrop").addEventListener("click", closeSheet);
     $("#btn-workout-settings").addEventListener("click", openWorkoutSettings);
 
@@ -2471,7 +2493,7 @@
     if ($("#screen-me") && $("#screen-me").classList.contains("active")) rerenderMe();
     renderToday();
     renderExercises();
-    renderHistory();
+    refreshHistoryIfActive();
     renderStats();
     if (Store.data.activeWorkout) renderWorkout();
   }

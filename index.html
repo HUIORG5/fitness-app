@@ -46,14 +46,6 @@
       <div id="exercise-list"></div>
     </section>
 
-    <!-- 历史 -->
-    <section class="screen" id="screen-history">
-      <header class="nav">
-        <h1 class="large-title">历史</h1>
-      </header>
-      <div id="history-list"></div>
-    </section>
-
     <!-- 统计 -->
     <section class="screen" id="screen-stats">
       <header class="nav">
@@ -75,10 +67,19 @@
   <nav id="tabbar">
     <button class="tab active" data-tab="today"><span class="tab-ico" data-icon="calendar"></span>今天</button>
     <button class="tab" data-tab="exercises"><span class="tab-ico" data-icon="dumbbell"></span>动作</button>
-    <button class="tab" data-tab="history"><span class="tab-ico" data-icon="list"></span>历史</button>
     <button class="tab" data-tab="stats"><span class="tab-ico" data-icon="chart"></span>统计</button>
     <button class="tab" data-tab="me"><span class="tab-ico" data-icon="user"></span>我的</button>
   </nav>
+
+  <!-- ======== 全部历史（从今天页进入；z-index 低于 sub-view，点开训练详情时详情盖在它上面） ======== -->
+  <div class="overlay" id="history-view" style="z-index:49">
+    <header class="overlay-nav">
+      <button class="text-btn primary" id="history-back">返回</button>
+      <div class="overlay-title">全部历史</div>
+      <span class="nav-spacer"></span>
+    </header>
+    <div class="overlay-body" id="history-body"></div>
+  </div>
 
   <!-- ======== 计划编辑（与训练页同一套布局：返回 / 可编辑标题 / 右上保存 / 底部固定按钮） ======== -->
   <div class="overlay" id="plan-view" style="z-index:52">
