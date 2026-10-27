@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v52";
+  const APP_VERSION = "v53";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -1519,6 +1519,8 @@
     if (!ok) return;
     Store.data.customExercises = Store.data.customExercises.filter((e) => e.id !== id);
     Store.data.exOrder = (Store.data.exOrder || []).filter((x) => x !== id);
+    // 墓碑：没有它，云同步的"并集"合并会把这条从云端再捞回来（删了又出现）
+    Store.tombstoneExercise(id);
     Store.save();
     Store.touchLib();
     closeSub();

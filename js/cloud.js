@@ -372,14 +372,16 @@
   }
 
   /* ---------- 动作库同步 ----------
-   * custom 按 id 取并集（两边都新增过也不会互相覆盖丢失）；
+   * custom 按 id 取并集（两边都新增过也不会互相覆盖丢失），但**墓碑里的 id 一律剔除**：
+   * 纯并集会把刚删掉的动作从云端捞回来，表现就是"删了过一会儿又出现"。
    * hidden / ex_order 按 updated_at 取较新的一份；最后把合并结果推回云端。
    */
-  function mergeCustomById(local, remote) {
+  function mergeCustomById(local, remote, deadIds) {
     const out = [];
     const seen = {};
     (remote || []).concat(local || []).forEach((e) => {
       if (!e || !e.id || seen[e.id]) return;
+      if (deadIds && deadIds[e.id]) return;
       seen[e.id] = 1;
       out.push(e);
     });
@@ -404,8 +406,16 @@
     // 刚推送完两端时间戳几乎相同，不设容差会把自己刚写的排序盖掉
     const remoteNewer = remoteAt > localAt + 2000;
 
-    // 合并：custom 永远取并集；hidden / ex_order 谁新听谁的
-    Store.data.customExercises = mergeCustomById(Store.data.customExercises, remote && remote.custom);
+    // 合并：custom 取并集但剔除墓碑；hidden / ex_order 谁新听谁的
+    Store.gcExerciseTombs();
+    const deadIds = {};
+    (Store.data.deletedExercises || []).forEach((t) => { if (t && t.id) deadIds[t.id] = t.at || 0; });
+    ((remote && remote.deleted) || []).forEach((t) => {
+      if (!t || !t.id) return;
+      if (!deadIds[t.id] || (t.at || 0) > deadIds[t.id]) deadIds[t.id] = t.at || 0;
+    });
+    Store.data.deletedExercises = Object.keys(deadIds).map((id) => ({ id: id, at: deadIds[id] }));
+    Store.data.customExercises = mergeCustomById(Store.data.customExercises, remote && remote.custom, deadIds);
     if (remoteNewer) {
       Store.data.hiddenBuiltins = Array.isArray(remote.hidden) ? remote.hidden : [];
       Store.data.exOrder = Array.isArray(remote.ex_order) ? remote.ex_order : [];
@@ -429,13 +439,21 @@
       return { ok: true, pulled: false };
     }
 
-    const { error } = await client.from("exercise_lib").upsert({
+    const base = {
       user_id: user.id,
       custom: Store.data.customExercises,
       hidden: Store.data.hiddenBuiltins,
       ex_order: Store.data.exOrder,
       updated_at: new Date().toISOString(),
-    });
+    };
+    let { error } = await client.from("exercise_lib").upsert(
+      Object.assign({ deleted: Store.data.deletedExercises }, base)
+    );
+    // 云端还没加 deleted 列（迁移没跑）时降级为旧写法：宁可删除暂时不生效，也不能让整份动作库同步失败
+    if (error && /deleted/i.test(error.message)) {
+      const retry = await client.from("exercise_lib").upsert(base);
+      error = retry.error;
+    }
     if (error) return { error: friendlyCloudError(error.message) };
     // 用“改动时刻”而不是“推送时刻”：否则中间隔着的网络往返会让下一次改动被误判为没改过
     libPushedAt = Store.data.libUpdatedAt || Date.now();

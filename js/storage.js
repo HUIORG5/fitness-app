@@ -61,6 +61,7 @@
   const DEFAULT = {
     workouts: [],          // 已完成训练
     customExercises: [],   // 自定义动作
+    deletedExercises: [],  // 已删自定义动作的墓碑 [{id, at}]：云同步据此把它从云端也删掉，防止"删了又回来"
     activeWorkout: null,   // 进行中的训练
     deletedWorkouts: [],   // 已删除训练的墓碑 [{id, at}]：云同步时据此删云端，防止“删了又回来”
     syncedIds: [],         // 已确认在云端的训练 id：云端忽然没有它，说明是别的设备删的
@@ -165,6 +166,19 @@
     save();
   }
 
+  /* 自定义动作墓碑：动作库云同步对 custom 是"并集"合并，只删本地不改云端的话，
+   * 下一次同步会把它从云端捞回来（表现为"删了过一会儿又出现"）。
+   * 所以删除时记一条墓碑，合并前先剔除这些 id。 */
+  function tombstoneExercise(id) {
+    data.deletedExercises = (data.deletedExercises || []).filter((t) => t && t.id !== id);
+    data.deletedExercises.push({ id: id, at: Date.now() });
+  }
+  // 清理 90 天前的动作墓碑，避免无限增长
+  function gcExerciseTombs() {
+    const now = Date.now();
+    data.deletedExercises = (data.deletedExercises || []).filter((t) => t && t.id && (now - (t.at || 0)) < 90 * 24 * 3600 * 1000);
+  }
+
   function isBuiltin(id) {
     return BUILTIN.some((e) => e.id === id);
   }
@@ -192,6 +206,7 @@
     uid,
     allExercises,
     touchLib, touchPlans, livePlans, findPlan, savePlan, deletePlan, gcPlanTombs,
+    tombstoneExercise, gcExerciseTombs,
     findExercise,
     findExerciseAny,
     hiddenList,
