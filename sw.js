@@ -1,5 +1,5 @@
 /* 练了吗 · Service Worker：离线可用 */
-const CACHE = "tieji-v60";
+const CACHE = "tieji-v61";
 const ASSETS = [
   "./",
   "./index.html",
@@ -17,6 +17,8 @@ const ASSETS = [
   "./icons/apple-touch-icon.png",
   "./icons/avatar-default.png",
   "./legal.html",
+  "./changelog.html",
+  "./CHANGELOG.md",
   "./icons/qr-home.png",
 ];
 

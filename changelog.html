@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>练了吗 · 更新记录</title>
+<style>
+:root{--bg:#f2f2f7;--text:#1c1c1e;--text2:#8e8e93;--sep:rgba(60,60,67,.12);--blue:#007aff;--code:rgba(118,118,128,.12)}
+@media (prefers-color-scheme:dark){:root{--bg:#000;--text:#fff;--text2:#98989f;--sep:rgba(84,84,88,.4);--blue:#0a84ff;--code:rgba(118,118,128,.3)}}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-text-size-adjust:none;text-size-adjust:none}
+body{background:var(--bg);color:var(--text);font:16px/1.7 -apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif;padding:22px 18px calc(env(safe-area-inset-bottom) + 48px);max-width:720px;margin:0 auto}
+h1{font-size:25px;font-weight:800;letter-spacing:-.5px;margin-bottom:10px}
+h2.ver{font-size:17px;font-weight:700;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:24px 0 8px;padding-top:16px;border-top:1px solid var(--sep)}
+h2.ver:first-of-type{border-top:none;padding-top:0;margin-top:6px}
+h2.ver .v{color:var(--blue);font-variant-numeric:tabular-nums}
+h2.ver .d{color:var(--text2);font-size:13px;font-weight:400}
+ul{padding-left:20px;margin:0}
+li{font-size:15px;margin:4px 0}
+p{font-size:14.5px;color:var(--text2);margin:6px 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13.5px;background:var(--code);border-radius:5px;padding:1px 5px;word-break:break-all}
+hr{border:none;border-top:1px solid var(--sep);margin:20px 0}
+.err{color:var(--text2);font-size:14px;text-align:center;padding:40px 0}
+</style>
+</head>
+<body>
+<div id="doc"><p class="err">加载中…</p></div>
+<script>
+(function () {
+  var box = document.getElementById("doc");
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function inline(s) {
+    return esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+  }
+  // 极简 markdown：只认 # / ## / - / --- / 行内 code 和加粗，够这份文档用
+  function render(md) {
+    var out = [], inList = false;
+    function closeList() { if (inList) { out.push("</ul>"); inList = false; } }
+    md.split(/\r?\n/).forEach(function (raw) {
+      var line = raw.replace(/\s+$/, "");
+      if (/^-{3,}$/.test(line)) { closeList(); out.push("<hr>"); return; }
+      var h2 = line.match(/^##\s+(.+)$/);
+      if (h2) {
+        closeList();
+        var t = h2[1];
+        var vm = t.match(/^(v[\dv\s–—-]+?)\s*·\s*(.+)$/);
+        out.push(vm
+          ? '<h2 class="ver"><span class="v">' + esc(vm[1]) + '</span><span class="d">' + esc(vm[2]) + "</span></h2>"
+          : '<h2 class="ver">' + inline(t) + "</h2>");
+        return;
+      }
+      if (/^#\s+/.test(line)) { closeList(); out.push("<h1>" + inline(line.replace(/^#\s+/, "")) + "</h1>"); return; }
+      if (/^-\s+/.test(line)) {
+        if (!inList) { out.push("<ul>"); inList = true; }
+        out.push("<li>" + inline(line.replace(/^-\s+/, "")) + "</li>");
+        return;
+      }
+      if (!line) { closeList(); return; }
+      closeList();
+      out.push("<p>" + inline(line) + "</p>");
+    });
+    closeList();
+    return out.join("");
+  }
+  fetch("CHANGELOG.md", { cache: "no-cache" })
+    .then(function (r) { if (!r.ok) throw new Error("bad status"); return r.text(); })
+    .then(function (md) { box.innerHTML = render(md); })
+    .catch(function () {
+      box.innerHTML = '<p class="err">记录读取失败，请联网后重新打开。</p>';
+    });
+})();
+</script>
+</body>
+</html>
