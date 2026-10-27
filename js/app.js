@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v57";
+  const APP_VERSION = "v58";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -158,6 +158,33 @@
     };
   }
 
+  /* 首页统计条：默认只露「以前那三个」，点开才铺满六格 —— 六格一起摆太占屏幕。
+   * 折叠时就是最常用的三个（本周训练 / 本周容量 / 连续天数），展开后三个新指标接在后面，
+   * 前三个位置不变，展开/收起不会跳。 */
+  let statsOpen = false;
+  function statStripHtml() {
+    const st = homeStats();
+    const head = [
+      { v: st.week.days, t: "本周训练" },
+      { v: fmtNum(U.kgToDisp(st.week.vol)), t: "本周容量 " + U.cur() },
+      { v: st.streak, t: "连续天数" },
+    ];
+    const more = [
+      { v: st.month.days, t: "本月训练" },
+      { v: fmtNum(U.kgToDisp(st.month.vol)), t: "本月容量 " + U.cur() },
+      { v: st.year.days, t: "本年训练" },
+    ];
+    const list = statsOpen ? head.concat(more) : head;
+    return '<div class="week-strip">' +
+      list.map((x) => '<div class="ws-item"><b>' + x.v + "</b><small>" + x.t + "</small></div>").join("") +
+      '</div><button class="strip-toggle" data-act="toggle-stats">' + (statsOpen ? "收起 ▴" : "展开更多 ▾") + "</button>";
+  }
+  function toggleStats() {
+    statsOpen = !statsOpen;
+    const wrap = $("#stat-strip");
+    if (wrap) wrap.outerHTML = '<div id="stat-strip">' + statStripHtml() + "</div>";
+  }
+
   /* ---------- 提示 ---------- */
   let toastTimer = null;
   let lastToast = { msg: "", at: 0 };
@@ -290,15 +317,7 @@
         '<span class="grow" style="color:var(--blue)">＋ 新建训练计划</span>' +
         '<span class="val">排好常练的组合</span></button></div>';
     }
-    const st = homeStats();
-    // 上排：本周训练天数 / 本周容量 / 本月容量；下排：本月训练天数 / 本年训练天数 / 连续天数
-    html += '<div class="week-strip">' +
-      '<div class="ws-item"><b>' + st.week.days + "</b><small>本周训练</small></div>" +
-      '<div class="ws-item"><b>' + fmtNum(U.kgToDisp(st.week.vol)) + "</b><small>本周容量 " + U.cur() + "</small></div>" +
-      '<div class="ws-item"><b>' + fmtNum(U.kgToDisp(st.month.vol)) + "</b><small>本月容量 " + U.cur() + "</small></div>" +
-      '<div class="ws-item"><b>' + st.month.days + "</b><small>本月训练</small></div>" +
-      '<div class="ws-item"><b>' + st.year.days + "</b><small>本年训练</small></div>" +
-      '<div class="ws-item"><b>' + st.streak + "</b><small>连续天数</small></div></div>";
+    html += '<div id="stat-strip">' + statStripHtml() + "</div>";
     const recent = d.workouts.slice().sort((a, b) => b.startedAt - a.startedAt).slice(0, 5);
     if (recent.length) {
       html += '<div class="section-title with-more"><span>最近训练</span>' +
@@ -2246,6 +2265,7 @@
     "picker-cat": (el) => { picker.cat = el.dataset.cat; renderPicker(); },
     "pick-exercise": (el) => pickExercise(el.dataset.id),
     "open-all-history": openHistoryView,
+    "toggle-stats": toggleStats,
     "open-workout-detail": (el) => openWorkoutDetail(el.dataset.id),
     "repeat-workout": (el) => repeatWorkout(el.dataset.id),
     "share-workout": (el) => shareWorkout(el.dataset.id),

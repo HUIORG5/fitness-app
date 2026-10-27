@@ -203,6 +203,13 @@ svg{display:block;}
 .ws-item{background:var(--card);border-radius:14px;padding:11px 6px;text-align:center;box-shadow:var(--shadow);min-width:0;}
 .ws-item b{font-size:17px;display:block;font-variant-numeric:tabular-nums;white-space:nowrap;}
 .ws-item small{font-size:11px;color:var(--text-2);white-space:nowrap;}
+/* 统计条的展开/收起 */
+.strip-toggle{
+  display:block;width:100%;margin:2px 0 0;padding:5px 0 3px;
+  font-size:12.5px;font-weight:500;color:var(--blue);
+  background:none;border:none;
+}
+.strip-toggle:active{opacity:.45;}
 
 .history-row{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:.5px solid var(--sep);width:100%;text-align:left;background:var(--card);}
 .history-row:last-child{border-bottom:none;}
