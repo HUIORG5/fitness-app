@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v61";
+  const APP_VERSION = "v62";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -97,8 +97,28 @@
   // 副标题拼接：部位 · 计时（次数型只显示部位）
   function catLine(cat, type) { return cat + (type === "time" ? " · 计时" : ""); }
 
-  function setText(s, type) {
-    if (type === "time") return s.sec + " 秒";
+  // 计时动作的显示单位：有氧器械按「分钟」，平板支撑 / 战绳这类短时动作按「秒」。
+  // 优先看动作自带 unit，老记录没存 unit 时回内置库按 id 查；都查不到就是秒。
+  function unitOf(ex) {
+    if (!ex) return "sec";
+    if (ex.unit) return ex.unit;
+    if (ex.exerciseId) {
+      const b = Store.BUILTIN.find((x) => x.id === ex.exerciseId);
+      if (b && b.unit) return b.unit;
+    }
+    return "sec";
+  }
+  function setText(s, type, unit) {
+    if (type === "time") {
+      const sec = s.sec || 0;
+      if (unit === "min") {
+        const m = Math.floor(sec / 60), r = sec % 60;
+        if (m && r) return m + " 分 " + r + " 秒";
+        if (m) return m + " 分";
+        return r + " 秒";
+      }
+      return sec + " 秒";
+    }
     return (s.kg > 0 ? U.fmt(s.kg) + " " + U.cur() + " × " : "徒手 × ") + s.reps + " 次";
   }
   function bestMaps() {
@@ -145,13 +165,16 @@
     });
     return { days: Object.keys(days).length, vol: vol };
   }
-  // 首页顶部六格：本周 / 本月 / 本年，统一按「训练天数」口径（原来本周算的是次数）
+  // 首页顶部六格：自然周 / 自然月 / 自然年，统一按「训练天数」口径
   function homeStats() {
     const now = new Date();
     const end = now.getTime();
     const today = new Date(now); today.setHours(0, 0, 0, 0);
+    // 本周从周一 00:00 算（之前是"最近 7 天"滚动窗口，会把上周末也算进来，看着像多算了）
+    const sinceMonday = new Date(today);
+    sinceMonday.setDate(sinceMonday.getDate() - ((now.getDay() + 6) % 7));
     return {
-      week: rangeStats(today.getTime() - 6 * 86400000, end),
+      week: rangeStats(sinceMonday.getTime(), end),
       month: rangeStats(new Date(now.getFullYear(), now.getMonth(), 1).getTime(), end),
       year: rangeStats(new Date(now.getFullYear(), 0, 1).getTime(), end),
       streak: streakDays(),
@@ -669,7 +692,7 @@
       const isPR = isNewPR && si === curBestIdx;
       return '<tr><td class="set-idx">' + (si + 1) + "</td><td>" +
         '<button class="set-row-btn set-main" data-act="edit-set" data-i="' + i + '" data-si="' + si + '">' +
-        setText(s, e.type) + (isPR ? '<span class="pr-tag">PR</span>' : "") + "</button></td>" +
+        setText(s, e.type, unitOf(e)) + (isPR ? '<span class="pr-tag">PR</span>' : "") + "</button></td>" +
         '<td class="set-e1rm">' + (e.type === "time" || setE1RM(s) <= 0 ? "—" : U.fmt(setE1RM(s))) + "</td></tr>";
     }).join("");
     return '<div class="ex-card">' +
@@ -723,7 +746,7 @@
       kg = s.kg; reps = s.reps; sec = s.sec;
     } else if (prevSet) {
       // 往后的组接着上一组的重量和次数
-      kg = prevSet.kg; reps = prevSet.reps; sec = prevSet.sec || 60;
+      kg = prevSet.kg; reps = prevSet.reps; sec = prevSet.sec || (unitOf(e) === "min" ? 300 : 60);
     } else {
       // 第一组：重量与次数**独立判断**
       //   重量：设了默认重量就用它，否则跟随上次训练
@@ -738,21 +761,26 @@
         kg = defKg > 0 ? defKg : (lastSet ? lastSet.kg : 0);
         reps = st.repsCustom ? (st.defaultReps || 10) : (lastSet ? lastSet.reps : (st.defaultReps || 10));
       }
-      sec = 60;
+      sec = unitOf(e) === "min" ? 300 : 60;
     }
     draft = {
       i: entryIdx, si: setIdx,
+      unit: e.type === "time" ? unitOf(e) : "sec",
       kg: kg, reps: reps, sec: sec,
     };
     const step = U.step();
     let rows = "";
     if (e.type === "time") {
-      rows = '<div class="stepper-row"><span class="stepper-label">时长<small>秒</small></span>' +
+      // 有氧器械按分钟填（30 分），平板支撑这类短时动作按秒填；秒的存储不变，只在输入/显示时换算
+      const u = draft.unit;
+      const shown = u === "min" ? Math.round(draft.sec / 60) : draft.sec;
+      const quick = u === "min" ? [5, 10, 15, 20, 30, 45] : [30, 45, 60, 90, 120];
+      rows = '<div class="stepper-row"><span class="stepper-label">时长<small>' + (u === "min" ? "分钟" : "秒") + "</small></span>" +
         '<span class="stepper"><button data-noblur data-act="dec-sec">−</button>' +
-        '<input id="in-sec" type="number" inputmode="numeric" value="' + draft.sec + '">' +
+        '<input id="in-sec" type="number" inputmode="numeric" value="' + shown + '">' +
         '<button data-noblur data-act="inc-sec">+</button></span></div>' +
         '<div class="chips" style="margin:10px 0">' +
-        [30, 45, 60, 90, 120].map((v) => '<button class="chip" data-noblur data-act="quick-sec" data-v="' + v + '">' + v + "秒</button>").join("") + "</div>";
+        quick.map((v) => '<button class="chip" data-noblur data-act="quick-sec" data-v="' + v + '">' + v + (u === "min" ? "分" : "秒") + "</button>").join("") + "</div>";
     } else {
       rows = '<div class="stepper-row"><span class="stepper-label">重量<small>' + U.cur() + " · 0 = 徒手</small></span>" +
         '<span class="stepper"><button data-noblur data-act="dec-kg">−</button>' +
@@ -766,7 +794,7 @@
     let lastHtml = "";
     if (last && last.sets.length) {
       lastHtml = '<div class="last-sets"><b>上次（' + fmtDate(new Date(last.date)) + "）</b>" +
-        last.sets.slice(-5).map((s) => '<span class="ls-item">' + setText(s, last.type) + "</span>").join("") + "</div>";
+        last.sets.slice(-5).map((s) => '<span class="ls-item">' + setText(s, last.type, unitOf(last)) + "</span>").join("") + "</div>";
     }
     $("#sheet-content").innerHTML =
       '<div class="sheet-title">' + (editing ? "修改组" : "添加组") + " · " + esc(e.name) + "</div>" +
@@ -788,7 +816,8 @@
     const e = w.exercises[draft.i];
     const newAt = Date.now(); // 上组完成时间
     if (e.type === "time") {
-      const sec = Math.max(1, Math.round(parseFloat($("#in-sec").value) || 0));
+      const raw = Math.round(parseFloat($("#in-sec").value) || 0);
+      const sec = Math.max(1, draft.unit === "min" ? raw * 60 : raw);
       if (draft.si != null) e.sets[draft.si].sec = sec;
       else e.sets.push({ id: Store.uid(), kg: 0, reps: 0, sec: sec, at: newAt });
     } else {
@@ -985,7 +1014,7 @@
   /* ================= 训练详情 ================= */
   function exCardReadonly(e) {
     const rows = e.sets.map((s, si) =>
-      '<tr><td class="set-idx">' + (si + 1) + '</td><td class="set-main">' + setText(s, e.type) + "</td>" +
+      '<tr><td class="set-idx">' + (si + 1) + '</td><td class="set-main">' + setText(s, e.type, unitOf(e)) + "</td>" +
       '<td class="set-e1rm">' + (e.type === "time" || setE1RM(s) <= 0 ? "—" : U.fmt(setE1RM(s))) + "</td></tr>").join("");
     return '<div class="ex-card"><div class="ex-head"><span class="grow"><b>' + esc(e.name) + "</b><small>" + e.cat + "</small></span>" +
       '<span class="ex-cat">' + fmtVol(exVol(e)) + "</span></div>" +
@@ -1340,7 +1369,7 @@
         c.textAlign = "left"; F(14); c.fillStyle = SUB;
         c.fillText(String(si + 1), PAD + 20, ry);
         F(16); c.fillStyle = INK;
-        c.fillText(setText(s2, e.type), PAD + 70, ry);
+        c.fillText(setText(s2, e.type, unitOf(e)), PAD + 70, ry);
         c.textAlign = "right"; F(15); c.fillStyle = SUB;
         const e1 = e.type === "time" || setE1RM(s2) <= 0 ? "—" : U.fmt(setE1RM(s2));
         c.fillText(e1, PAD + CW - 20, ry);
@@ -1438,9 +1467,7 @@
       ? '<div class="section-title">最近记录</div><div class="list">' + ws.slice(0, 6).map((w) => {
           const it = w.exercises.find((x) => x.name === ex.name);
           const top = topSet(it.sets, ex.type);
-          const val = top
-            ? (ex.type === "time" ? fmtClock(top.sec || 0) : U.fmt(U.kgToDisp(top.kg || 0)) + " × " + (top.reps || 0))
-            : "—";
+          const val = top ? setText(top, ex.type, unitOf(ex)) : "—";
           return '<button class="row" data-act="open-workout-detail" data-id="' + w.id + '">' +
             '<span class="grow">' + fmtDate(new Date(w.startedAt)) +
             '<span class="row-sub">' + it.sets.length + " 组 · 容量 " + fmtVol(exVol(it)) + "</span></span>" +
@@ -2241,8 +2268,8 @@
     "dec-kg": () => bump("#in-kg", -U.step()),
     "inc-reps": () => bump("#in-reps", 1),
     "dec-reps": () => bump("#in-reps", -1),
-    "inc-sec": () => bump("#in-sec", 15),
-    "dec-sec": () => bump("#in-sec", -15),
+    "inc-sec": () => bump("#in-sec", draft && draft.unit === "min" ? 1 : 15),
+    "dec-sec": () => bump("#in-sec", draft && draft.unit === "min" ? -1 : -15),
     "quick-sec": (el) => { $("#in-sec").value = el.dataset.v; },
     "finish-workout": finishWorkout,
     "save-workout-final": saveWorkoutFinal,
