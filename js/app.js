@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v62";
+  const APP_VERSION = "v63";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -121,24 +121,46 @@
     }
     return (s.kg > 0 ? U.fmt(s.kg) + " " + U.cur() + " × " : "徒手 × ") + s.reps + " 次";
   }
+  // 历史最佳 e1RM / 单次容量。同时建两份索引：
+  //   - 按 name：兼容没有 exerciseId 的早期记录
+  //   - 按 exerciseId：**改名也能对上**（v54 细化动作名之后，只按名字查会全部失配）
   function bestMaps() {
-    const e1 = {}, vol = {};
+    const e1 = {}, e1ById = {}, vol = {}, volById = {};
     Store.data.workouts.forEach((w) => {
       w.exercises.forEach((e) => {
         e.sets.forEach((s) => {
           const r = setE1RM(s);
-          if (r > 0 && (!e1[e.name] || r > e1[e.name].val)) e1[e.name] = { val: r, set: s, date: w.startedAt };
+          if (r > 0) {
+            if (!e1[e.name] || r > e1[e.name].val) e1[e.name] = { val: r, set: s, date: w.startedAt };
+            if (e.exerciseId && (!e1ById[e.exerciseId] || r > e1ById[e.exerciseId].val))
+              e1ById[e.exerciseId] = { val: r, set: s, date: w.startedAt };
+          }
         });
         const v = exVol(e);
-        if (v > 0 && (!vol[e.name] || v > vol[e.name].val)) vol[e.name] = { val: v, date: w.startedAt };
+        if (v > 0) {
+          if (!vol[e.name] || v > vol[e.name].val) vol[e.name] = { val: v, date: w.startedAt };
+          if (e.exerciseId && (!volById[e.exerciseId] || v > volById[e.exerciseId].val))
+            volById[e.exerciseId] = { val: v, date: w.startedAt };
+        }
       });
     });
-    return { e1: e1, vol: vol };
+    return { e1: e1, e1ById: e1ById, vol: vol, volById: volById };
   }
-  function lastSets(name) {
+  // 历史最佳：先按动作 ID 找，找不到再退回按名字（老记录没有 exerciseId）
+  function prevBestOf(old, e) {
+    return (e.exerciseId && old.e1ById[e.exerciseId]) || old.e1[e.name] || null;
+  }
+  function prevVolOf(old, e) {
+    return (e.exerciseId && old.volById[e.exerciseId]) || old.vol[e.name] || null;
+  }
+  // 上次练这个动作的记录。按 ID 优先匹配，改过名也能接上（否则第一组预填和「上次」提示会失效）
+  function lastSets(ex) {
+    if (!ex) return null;
+    const id = ex.id, name = ex.name;
+    const hit = (x) => (id && x.exerciseId === id) || x.name === name;
     const ws = Store.data.workouts.slice().sort((a, b) => b.startedAt - a.startedAt);
     for (const w of ws) {
-      const e = w.exercises.find((x) => x.name === name);
+      const e = w.exercises.find(hit);
       if (e && e.sets.length) return { sets: e.sets, type: e.type, date: w.startedAt };
     }
     return null;
@@ -373,12 +395,12 @@
     const groups = {};
     list.forEach((e) => { (groups[e.cat] = groups[e.cat] || []).push(e); });
     const keys = order.filter((k) => groups[k]).concat(Object.keys(groups).filter((k) => order.indexOf(k) < 0));
-    const bests = bestMaps().e1;
+    const bm = bestMaps();
     let html = "";
     keys.forEach((k) => {
       html += '<div class="section-title">' + k + "</div><div class=\"list\">" +
         groups[k].map((e) => {
-          const b = bests[e.name];
+          const b = bm.e1ById[e.id] || bm.e1[e.name];
           return '<button class="row" data-act="open-exercise-detail" data-id="' + e.id + '" data-ex-id="' + e.id + '">' +
             '<span class="grow">' + esc(e.name) +
             (e.custom ? ' <span class="ex-cat">自定义</span>' : "") + "</span>" +
@@ -611,12 +633,16 @@
   }
 
   /* ================= 动作趋势 ================= */
-  function trendPoints(name) {
+  // 某动作最近 10 次的「单次最佳容量」。按动作 ID 优先匹配，改过名也能接上旧记录
+  function trendPoints(ex) {
+    if (!ex) return [];
+    const id = ex.id, name = ex.name;
+    const hit = (it) => (id && it.exerciseId === id) || it.name === name;
     return Store.data.workouts
-      .filter((w) => w.exercises.some((e) => e.name === name))
+      .filter((w) => w.exercises.some(hit))
       .sort((a, b) => a.startedAt - b.startedAt).slice(-10)
       .map((w) => {
-        const e = w.exercises.find((x) => x.name === name);
+        const e = w.exercises.find(hit);
         const best = e.sets.reduce((a, s) => Math.max(a, setVol(s)), 0);
         const d = new Date(w.startedAt);
         return { label: d.getMonth() + 1 + "/" + d.getDate(), value: U.kgToDisp(best) };
@@ -685,7 +711,7 @@
     const e1s = e.sets.map((s) => setE1RM(s));
     let curBest = 0, curBestIdx = -1;
     e1s.forEach((v, k) => { if (v > curBest) { curBest = v; curBestIdx = k; } });
-    const prevBest = ((old.e1[e.name] || {}).val || 0);
+    const prevBest = (prevBestOf(old, e) || {}).val || 0;
     const isNewPR = curBest > 0 && curBest > prevBest + 0.01;
 
     const rows = e.sets.map((s, si) => {
@@ -740,7 +766,7 @@
     const editing = setIdx != null;
     const s = editing ? e.sets[setIdx] : null;
     const prevSet = !editing && e.sets.length ? e.sets[e.sets.length - 1] : null;
-    const last = lastSets(e.name);
+    const last = lastSets(e);
     let kg, reps, sec;
     if (editing) {
       kg = s.kg; reps = s.reps; sec = s.sec;
@@ -878,9 +904,11 @@
     w.exercises.forEach((e) => {
       const bestR = e.sets.reduce((a, s) => Math.max(a, setE1RM(s)), 0);
       const bestV = exVol(e);
-      if (bestR > 0 && bestR > ((old.e1[e.name] || {}).val || 0) + 0.01)
+      const pb = prevBestOf(old, e);
+      const pv = prevVolOf(old, e);
+      if (bestR > 0 && bestR > ((pb && pb.val) || 0) + 0.01)
         prs.push(e.name + " · 估算1RM " + U.fmt(bestR) + " " + U.cur());
-      if (bestV > 0 && bestV > ((old.vol[e.name] || {}).val || 0) + 0.01)
+      if (bestV > 0 && bestV > ((pv && pv.val) || 0) + 0.01)
         prs.push(e.name + " · 单次容量 " + fmtVol(bestV));
     });
     return prs;
@@ -1445,12 +1473,13 @@
     const ex = Store.findExerciseAny ? Store.findExerciseAny(id) : Store.findExercise(id);
     if (!ex) return;
     const isHidden = !!(Store.data.hiddenBuiltins || []).length && Store.data.hiddenBuiltins.indexOf(id) >= 0;
-    const ws = Store.data.workouts.filter((w) => w.exercises.some((e) => e.name === ex.name))
+    const ws = Store.data.workouts.filter((w) => w.exercises.some((it) => (ex.id && it.exerciseId === ex.id) || it.name === ex.name))
       .sort((a, b) => b.startedAt - a.startedAt);
     let statsHtml = "";
     if (ws.length) {
       const last = ws[0];
-      const best = bestMaps().e1[ex.name];
+      const bmDetail = bestMaps();
+      const best = bmDetail.e1ById[ex.id] || bmDetail.e1[ex.name];
       statsHtml = '<div class="list" style="margin-bottom:14px">' +
         '<div class="row"><span class="grow">训练次数</span><span class="val">' + ws.length + " 次</span></div>" +
         '<div class="row"><span class="grow">最近训练</span><span class="val">' + fmtDate(new Date(last.startedAt)) + "</span></div>" +
@@ -1458,14 +1487,14 @@
         "</div>";
     }
     // 单次最佳容量趋势（原来在统计页，现在跟着动作走）：一次训练只有一个点，没意义，攒到 2 次再画
-    const pts = trendPoints(ex.name);
+    const pts = trendPoints(ex);
     const trendHtml = pts.length >= 2
       ? '<div class="section-title">单次最佳容量 · 最近 ' + pts.length + ' 次</div><div class="chart-box"><div id="ex-trend-chart"></div></div>'
       : '<p class="set-note" style="margin-top:14px">再练一次就能看到容量趋势</p>';
     // 最近几次练这个动作的记录，点进去就是那天的训练详情
     const recentHtml = ws.length
       ? '<div class="section-title">最近记录</div><div class="list">' + ws.slice(0, 6).map((w) => {
-          const it = w.exercises.find((x) => x.name === ex.name);
+          const it = w.exercises.find((x) => (ex.id && x.exerciseId === ex.id) || x.name === ex.name) || w.exercises[0];
           const top = topSet(it.sets, ex.type);
           const val = top ? setText(top, ex.type, unitOf(ex)) : "—";
           return '<button class="row" data-act="open-workout-detail" data-id="' + w.id + '">' +
