@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v66";
+  const APP_VERSION = "v67";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -410,16 +410,16 @@
   }
 
   /* ================= 动作库 ================= */
-  const exFilter = { q: "", cat: "全部" };
+  // 没有「全部」了：默认停在第一个分类；输入搜索词时自动跨分类找
+  const exFilter = { q: "", cat: "胸" };
   function renderExercises() {
     $("#category-chips").innerHTML = Store.CATS.map((c) =>
       '<button class="chip' + (exFilter.cat === c ? " active" : "") + '" data-act="filter-cat" data-cat="' + c + '">' + c + "</button>").join("");
     const q = exFilter.q.trim().toLowerCase();
     const list = Store.allExercises().filter((e) => {
-      if (exFilter.cat === "自定义" && !e.custom) return false;
-      if (exFilter.cat !== "全部" && exFilter.cat !== "自定义" && e.cat !== exFilter.cat) return false;
-      if (q && e.name.toLowerCase().indexOf(q) < 0) return false;
-      return true;
+      if (q) return e.name.toLowerCase().indexOf(q) >= 0;   // 搜索时不限分类
+      if (exFilter.cat === "自定义") return !!e.custom;
+      return e.cat === exFilter.cat;
     });
     const box = $("#exercise-list");
     if (!list.length) {
@@ -449,7 +449,8 @@
     });
     // 被移除的内置动作单独列出来，仍可点进详情看历史成绩、也可单独恢复
     const hidden = Store.hiddenList();
-    const showHidden = hidden.length && !q && exFilter.cat === "全部";
+    // 没有「全部」视图后，已移除的动作归到「自定义」里显示，仍可点进去恢复
+    const showHidden = hidden.length && !q && exFilter.cat === "自定义";
     if (showHidden) {
       html += '<div class="section-title">已移除的动作 · ' + hidden.length + "</div><div class=\"list\">" +
         hidden.map((e) =>
@@ -1010,9 +1011,9 @@
   }
 
   /* ---------- 选择动作弹层 ---------- */
-  const picker = { q: "", cat: "全部", from: null, multi: false, sel: {} };  // from: null=训练中 | "plan"=计划编辑
+  const picker = { q: "", cat: "胸", from: null, multi: false, sel: {} };  // from: null=训练中 | "plan"=计划编辑
   function openExercisePicker() {
-    picker.q = ""; picker.cat = "全部";
+    picker.q = ""; picker.cat = "胸";
     picker.from = null;   // 必须复位：否则计划编辑残留的标记会让正常训练也走进计划分支
     $("#sheet-content").innerHTML =
       '<div class="sheet-title">添加动作</div>' +
@@ -1032,10 +1033,9 @@
       '<button class="chip' + (picker.cat === c ? " active" : "") + '" data-act="picker-cat" data-cat="' + c + '">' + c + "</button>").join("");
     const q = picker.q.trim().toLowerCase();
     const list = Store.allExercises().filter((e) => {
-      if (picker.cat === "自定义" && !e.custom) return false;
-      if (picker.cat !== "全部" && picker.cat !== "自定义" && e.cat !== picker.cat) return false;
-      if (q && e.name.toLowerCase().indexOf(q) < 0) return false;
-      return true;
+      if (q) return e.name.toLowerCase().indexOf(q) >= 0;   // 搜索时不限分类
+      if (picker.cat === "自定义") return !!e.custom;
+      return e.cat === picker.cat;
     });
     const box = $("#picker-list");
     const inPlan = picker.from === "plan";

@@ -337,22 +337,34 @@
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   }
 
+  // 每个动作被练过几次（按 exerciseId 计，改过名也算同一个动作）
+  function exFreq() {
+    const m = {};
+    data.workouts.forEach((w) => {
+      w.exercises.forEach((e) => {
+        const k = e.exerciseId || ("n:" + e.name);
+        m[k] = (m[k] || 0) + 1;
+      });
+    });
+    return m;
+  }
   function allExercises() {
     const hidden = data.hiddenBuiltins || [];
     const builtin = hidden.length ? BUILTIN.filter((e) => hidden.indexOf(e.id) < 0) : BUILTIN;
     const all = builtin.concat(data.customExercises);
+    const freq = exFreq();
+    const f = (e) => freq[e.id] || 0;
     const order = data.exOrder || [];
-    if (!order.length) return all;
-    // 按用户自定义顺序排，没进 order 的（例如新加的动作）按默认顺序追加在后面
+    // 没手动拖过：完全按「练得多」排前面
+    if (!order.length) return all.slice().sort((a, b) => f(b) - f(a));
+    // 分层：手动拖过的动作听用户的顺序，没拖过的按训练次数补在后面
     const rank = {};
     order.forEach((id, i) => { rank[id] = i; });
-    return all.slice().sort((a, b) => {
-      const ra = rank[a.id], rb = rank[b.id];
-      if (ra === undefined && rb === undefined) return 0;
-      if (ra === undefined) return 1;
-      if (rb === undefined) return -1;
-      return ra - rb;
-    });
+    const pinned = [], rest = [];
+    all.forEach((e) => (rank[e.id] !== undefined ? pinned : rest).push(e));
+    pinned.sort((a, b) => rank[a.id] - rank[b.id]);
+    rest.sort((a, b) => f(b) - f(a));
+    return pinned.concat(rest);
   }
 
   // 动作库（自定义动作 / 隐藏 / 排序）改动后调用：记时间戳，供跨设备合并判断新旧。
@@ -445,6 +457,6 @@
     findExerciseAny,
     hiddenList,
     isBuiltin,
-    CATS: ["全部", "胸", "背", "腿", "肩", "臂", "核心", "有氧", "自定义"],
+    CATS: ["胸", "背", "腿", "肩", "臂", "核心", "有氧", "自定义"],
   };
 })();
