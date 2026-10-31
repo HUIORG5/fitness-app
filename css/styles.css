@@ -68,10 +68,11 @@ svg{display:block;}
 /* ---------- 导航大标题 ---------- */
 .nav{
   display:flex;align-items:flex-end;justify-content:space-between;
-  padding:calc(env(safe-area-inset-top) + 14px) 0 10px;
+  padding:calc(env(safe-area-inset-top) + 18px) 0 10px;
 }
 .large-title{
-  font-size:30px;font-weight:700;letter-spacing:.2px;line-height:1.2;
+  /* 中文大标题靠"更大 + 收紧字距"出质感；原来 30px/+0.2 字距在大字号下显得松散 */
+  font-size:34px;font-weight:800;letter-spacing:-1px;line-height:1.12;
   -webkit-font-smoothing:antialiased;
 }
 .nav-btn{
