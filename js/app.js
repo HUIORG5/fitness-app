@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v63";
+  const APP_VERSION = "v64";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -494,6 +494,21 @@
     if ($("#workout-view").classList.contains("show")) return backWorkout();
   }
 
+  /* iOS 键盘弹出时，position:fixed 的弹层不会自动让位，搜索框会被键盘整个盖住。
+     用 visualViewport 算出被键盘占掉的高度写进 --kb，.sheet 据此上移并收缩。
+     Android / 桌面浏览器里 --kb 一直是 0，行为不变。 */
+  function bindKeyboardAvoid() {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const apply = () => {
+      const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+      document.documentElement.style.setProperty("--kb", kb + "px");
+    };
+    vv.addEventListener("resize", apply);
+    vv.addEventListener("scroll", apply);
+    apply();
+  }
+
   function bindSwipeBack() {
     // 这些区域不启用手势：输入框、开关、滑块、拖动把手、裁剪取景框
     const SKIP = "input,textarea,select,.switch,.ex-drag,.crop-stage,.crop-zoom,[data-noblur]";
@@ -820,7 +835,7 @@
     let lastHtml = "";
     if (last && last.sets.length) {
       lastHtml = '<div class="last-sets"><b>上次（' + fmtDate(new Date(last.date)) + "）</b>" +
-        last.sets.slice(-5).map((s) => '<span class="ls-item">' + setText(s, last.type, unitOf(last)) + "</span>").join("") + "</div>";
+        last.sets.slice(-5).map((s) => '<span class="ls-item">' + setText(s, last.type, unitOf(e)) + "</span>").join("") + "</div>";
     }
     $("#sheet-content").innerHTML =
       '<div class="sheet-title">' + (editing ? "修改组" : "添加组") + " · " + esc(e.name) + "</div>" +
@@ -2373,6 +2388,7 @@
     $$(".tab").forEach((t) => t.addEventListener("click", () => switchTab(t.dataset.tab)));
     bindExDrag(); // 动作库拖动排序
     bindSwipeBack(); // 右滑返回上一级
+    bindKeyboardAvoid(); // 键盘弹出时让弹层让位
     $("#btn-add-exercise").addEventListener("click", openCustomExercise);
     $("#btn-back-workout").addEventListener("click", backWorkout);
     $("#btn-finish-workout").addEventListener("click", finishWorkout);
