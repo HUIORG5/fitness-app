@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v64";
+  const APP_VERSION = "v65";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -313,13 +313,49 @@
   }
 
   /* ================= 今天 ================= */
+  // 这次训练主要练了哪：按各部位容量取最大；纯计时训练（容量 0）改按总时长取
+  function workoutMainCat(w) {
+    const vol = {}, sec = {};
+    w.exercises.forEach((e) => {
+      if (!e.cat) return;
+      vol[e.cat] = (vol[e.cat] || 0) + exVol(e);
+      if (e.type === "time") sec[e.cat] = (sec[e.cat] || 0) + e.sets.reduce((a, s) => a + (s.sec || 0), 0);
+    });
+    let best = null, bestVol = 0;
+    Object.keys(vol).forEach((c) => { if (vol[c] > bestVol) { bestVol = vol[c]; best = c; } });
+    if (best) return best;
+    let bestSec = 0;
+    Object.keys(sec).forEach((c) => { if (sec[c] > bestSec) { bestSec = sec[c]; best = c; } });
+    return best;
+  }
+  // 这次训练里所有组的时长之和（秒）——纯有氧的日子用它代替容量
+  function workoutSec(w) {
+    let t = 0;
+    w.exercises.forEach((e) => e.sets.forEach((s) => { t += s.sec || 0; }));
+    return t;
+  }
+  // 时长文字：45 分 / 1 时 20 分
+  function fmtMins(min) {
+    if (min < 60) return min + " 分";
+    const h = Math.floor(min / 60), m = min % 60;
+    return m ? h + " 时 " + m + " 分" : h + " 时";
+  }
   function historyRow(w) {
     const d = new Date(w.startedAt);
+    const cat = workoutMainCat(w);
+    const vol = workoutVol(w);
+    const sec = workoutSec(w);
+    // 有重量的日子显示容量；全是计时动作（容量为 0）就显示总时长，别再挂个 0 kg
+    const right = vol > 0
+      ? fmtVol(vol) + "<small>容量</small>"
+      : sec > 0 ? fmtMins(Math.round(sec / 60)) + "<small>时长</small>" : "—<small>容量</small>";
     return '<button class="history-row" data-act="open-workout-detail" data-id="' + w.id + '">' +
       '<span class="hr-date"><b>' + d.getDate() + '</b><small>' + fmtWD(d) + '</small></span>' +
-      '<span class="hr-info"><b>' + esc(w.name) + '</b><small>' + fmtDate(d) + " · " + fmtDur(w.endedAt - w.startedAt) +
+      '<span class="hr-info"><span class="hr-line"><b>' + esc(w.name) + "</b>" +
+      (cat ? '<span class="hr-cat">' + esc(cat) + "</span>" : "") + "</span>" +
+      '<small>' + fmtDate(d) + " · " + fmtDur(w.endedAt - w.startedAt) +
       " · " + w.exercises.length + " 动作 · " + setCount(w) + " 组</small></span>" +
-      '<span class="hr-vol">' + fmtVol(workoutVol(w)) + "<small>容量</small></span></button>";
+      '<span class="hr-vol">' + right + "</span></button>";
   }
   function renderToday() {
     const c = $("#today-content");

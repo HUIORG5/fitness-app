@@ -225,6 +225,10 @@ svg{display:block;}
 .hr-info{flex:1;min-width:0;}
 .hr-info b{font-size:16px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .hr-info small{font-size:13px;color:var(--text-2);}
+/* 标题行：训练名 + 主要部位小标签 */
+.hr-line{display:flex;align-items:center;gap:6px;min-width:0;}
+.hr-line b{min-width:0;}
+.hr-cat{flex:none;font-size:11px;font-weight:600;color:var(--blue);background:var(--blue-soft);border-radius:6px;padding:1px 6px;line-height:1.6;}
 .hr-vol{text-align:right;font-size:14px;font-weight:700;color:var(--blue);font-variant-numeric:tabular-nums;flex:none;}
 .hr-vol small{display:block;font-weight:500;color:var(--text-2);font-size:11px;}
 
