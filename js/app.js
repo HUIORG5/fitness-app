@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v72";
+  const APP_VERSION = "v73";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -1771,6 +1771,9 @@
     if (window.navigator.standalone === true) return true;
     return !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
   }
+  // Chrome / Edge 的安装事件，拿到后能一键唤起系统安装弹窗。
+  // iOS Safari 永远不派发它——苹果没开放，这一点改不了。
+  let installPrompt = null;
   /* 添加到桌面：图文步骤，图片在 img/guide/ */
   function openInstallGuide() {
     openSub("添加到桌面",
@@ -2416,7 +2419,17 @@
     "picker-cat": (el) => { picker.cat = el.dataset.cat; renderPicker(); },
     "pick-exercise": (el) => pickExercise(el.dataset.id),
     "open-all-history": openHistoryView,
-    "open-install-guide": openInstallGuide,
+    "open-install-guide": () => {
+      // 安卓 / Chrome 能直接弹系统安装框，一键装好；iOS 拿不到这个事件，只能看图文教程
+      if (installPrompt) {
+        const p = installPrompt;
+        installPrompt = null;
+        p.prompt();
+        p.userChoice.then((r) => { if (!r || r.outcome !== "accepted") toast("已取消安装"); }).catch(() => {});
+        return;
+      }
+      openInstallGuide();
+    },
     "toggle-stats": toggleStats,
     "open-workout-detail": (el) => openWorkoutDetail(el.dataset.id),
     "repeat-workout": (el) => repeatWorkout(el.dataset.id),
@@ -2469,6 +2482,17 @@
     bindExDrag(); // 动作库拖动排序
     bindSwipeBack(); // 右滑返回上一级
     bindKeyboardAvoid(); // 键盘弹出时让弹层让位
+    // 安卓 / Chrome：系统愿意装的时候会派发这个事件，先拦住存起来，
+    // 等用户真的点「添加到桌面」再放出去，避免一进页面就弹安装框
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      installPrompt = e;
+    });
+    window.addEventListener("appinstalled", () => {
+      installPrompt = null;
+      renderMe();
+      toast("已添加到桌面");
+    });
     $("#btn-add-exercise").addEventListener("click", openCustomExercise);
     $("#btn-back-workout").addEventListener("click", backWorkout);
     $("#btn-finish-workout").addEventListener("click", finishWorkout);

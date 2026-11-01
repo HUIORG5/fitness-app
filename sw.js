@@ -1,5 +1,5 @@
 /* 练了吗 · Service Worker：离线可用 */
-const CACHE = "tieji-v72";
+const CACHE = "tieji-v73";
 const ASSETS = [
   "./",
   "./index.html",
