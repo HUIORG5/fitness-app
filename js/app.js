@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v73";
+  const APP_VERSION = "v75";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -283,28 +283,39 @@
   }
 
   /* ---------- 弹层 ---------- */
-  function showSheet() { $("#sheet-backdrop").classList.add("show"); $("#sheet").classList.add("show"); }
+  function showSheet() {
+    const already = $("#sheet").classList.contains("show");
+    $("#sheet-backdrop").classList.add("show");
+    $("#sheet").classList.add("show");
+    if (!already) layerPushed();
+  }
   function closeSheet() {
+    const was = $("#sheet").classList.contains("show");
     picker.from = null;   // 面板一关就忘掉来源，避免污染下一次打开
     $("#sheet-backdrop").classList.remove("show");
     $("#sheet").classList.remove("show");
     $("#sheet").classList.remove("picker-sheet");
+    if (was) layerPopped();
   }
   function openSub(title, html, footer) {
+    const was = $("#sub-view").classList.contains("show");
     $("#sub-title").textContent = title;
     // footer：固定在内容底部的操作按钮区（可选）
     $("#sub-body").innerHTML = html + (footer ? '<div class="sub-footer">' + footer + "</div>" : "");
     $("#sub-body").scrollTop = 0;
     injectIcons($("#sub-body"));
     $("#sub-view").classList.add("show");
+    if (!was) layerPushed();
   }
   function closeSub() {
+    const was = $("#sub-view").classList.contains("show");
     $("#sub-view").classList.remove("show");
     // 二级页里改过计划（新建/删除/改名）后，底下的今天页还是旧 DOM：
     // 返回时重绘一次，免得用户必须手动刷新才看到。保留滚动位置。
     refreshTodayIfActive();
     // 从「全部历史」点进训练详情、在里面删了训练的话，返回时列表也要更新
     refreshHistoryIfActive();
+    if (was) layerPopped();
   }
   // 今天页当前可见时重绘它（别的 tab 不动，避免无谓重建）
   function refreshTodayIfActive() {
@@ -558,7 +569,67 @@
     apply();
   }
 
+  /* ---------- 安卓返回键 ----------
+   * iOS 没有全局返回键，回上一级靠右滑手势；安卓的返回键默认会**直接退出应用**，
+   * 因为它不知道我们其实只在同一个页面里叠了几层 DOM。
+   *
+   * 做法：只在 history 里放**一条**守护记录（不是每层一条 —— 那样 close/open 交错时
+   * 栈会错位）。按返回键时关掉最上面那层，如果下面还有层就补一条，保证下一次返回
+   * 仍然被接住；所有层都关光了才把守护记录弹掉，交还给系统。
+   * 只在非 iOS 启用 —— iPhone 上的行为一点不变。 */
+  const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  let guardOn = false;      // 是否已压入守护记录
+  let skipPops = 0;         // 我们自己 back() 产生的 popstate 要忽略
+  let closingByPop = false; // 正在被返回键驱动关闭，别在 close 里再弹一次
+
+  function hasOpenLayer() {
+    return $("#sheet").classList.contains("show") ||
+      $("#sub-view").classList.contains("show") ||
+      $("#history-view").classList.contains("show") ||
+      $("#workout-view").classList.contains("show");
+  }
+  function closeTopLayer() {
+    if ($("#sheet").classList.contains("show")) return closeSheet();
+    if ($("#sub-view").classList.contains("show")) return closeSub();
+    if ($("#history-view").classList.contains("show")) return closeHistoryView();
+    if ($("#workout-view").classList.contains("show")) return backWorkout();
+  }
+  function ensureGuard() {
+    if (isIOSDevice || guardOn) return;
+    guardOn = true;
+    history.pushState({ tiejiGuard: 1 }, "");
+  }
+  function releaseGuard() {
+    if (isIOSDevice || !guardOn || closingByPop) return;
+    guardOn = false;
+    skipPops++;
+    history.back();
+  }
+  // 某一层打开之后
+  function layerPushed() {
+    ensureGuard();
+  }
+  // 某一层关闭之后：还有别的层就继续守着，全关光了才把记录还回去
+  function layerPopped() {
+    if (!hasOpenLayer()) releaseGuard();
+  }
+  function bindBackButton() {
+    if (isIOSDevice) return;
+    window.addEventListener("popstate", () => {
+      if (skipPops > 0) { skipPops--; return; }
+      guardOn = false;               // 这条记录被系统消费掉了
+      if (!hasOpenLayer()) return;   // 一层都没开，交给系统去退出
+      closingByPop = true;
+      closeTopLayer();
+      closingByPop = false;
+      if (hasOpenLayer()) ensureGuard();  // 下面还有层，重新垫一条
+    });
+  }
+
   function bindSwipeBack() {
+    // 安卓 10+ 从屏幕边缘右滑本身就是系统「返回」，我们再拦一手只会打架
+    if (!isIOSDevice) return;
     // 这些区域不启用手势：输入框、开关、滑块、拖动把手、裁剪取景框
     const SKIP = "input,textarea,select,.switch,.ex-drag,.crop-stage,.crop-zoom,[data-noblur]";
     document.addEventListener("pointerdown", (e) => {
@@ -680,10 +751,14 @@
     box.innerHTML = historyHtml();
     box.scrollTop = 0;
     injectIcons(box);
+    const was = $("#history-view").classList.contains("show");
     $("#history-view").classList.add("show");
+    if (!was) layerPushed();
   }
   function closeHistoryView() {
+    const was = $("#history-view").classList.contains("show");
     $("#history-view").classList.remove("show");
+    if (was) layerPopped();
   }
   // 在历史里点进详情、删掉某条训练后返回：列表得跟着变，且保住滚动位置
   function refreshHistoryIfActive() {
@@ -716,11 +791,15 @@
   /* ================= 训练中 ================= */
   function openWorkoutView() {
     renderWorkout(true); // 打开界面时回到顶部
+    const was = $("#workout-view").classList.contains("show");
     $("#workout-view").classList.add("show");
+    if (!was) layerPushed();
   }
   function closeWorkoutView() {
+    const was = $("#workout-view").classList.contains("show");
     $("#workout-view").classList.remove("show");
     renderAll();
+    if (was) layerPopped();
   }
   function updateWorkoutMeta() {
     const w = Store.data.activeWorkout;
@@ -2481,6 +2560,7 @@
     $$(".tab").forEach((t) => t.addEventListener("click", () => switchTab(t.dataset.tab)));
     bindExDrag(); // 动作库拖动排序
     bindSwipeBack(); // 右滑返回上一级
+    bindBackButton(); // 安卓返回键：先关最上面那层，而不是退出应用
     bindKeyboardAvoid(); // 键盘弹出时让弹层让位
     // 安卓 / Chrome：系统愿意装的时候会派发这个事件，先拦住存起来，
     // 等用户真的点「添加到桌面」再放出去，避免一进页面就弹安装框
