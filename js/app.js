@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v67";
+  const APP_VERSION = "v68";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -120,6 +120,18 @@
       return sec + " 秒";
     }
     return (s.kg > 0 ? U.fmt(s.kg) + " " + U.cur() + " × " : "徒手 × ") + s.reps + " 次";
+  }
+  // 同一个动作里，某个重量出现了几次。返回每组的序号（1,2,3…），
+  // 只出现一次的重量返回 0 不标——否则一堆互不相同的组都挂个 ×1，反而更乱。
+  function repIdxOf(sets) {
+    const total = {}, seen = {};
+    sets.forEach((s) => { const k = s.kg || 0; total[k] = (total[k] || 0) + 1; });
+    return sets.map((s) => {
+      const k = s.kg || 0;
+      if (total[k] < 2) return 0;
+      seen[k] = (seen[k] || 0) + 1;
+      return seen[k];
+    });
   }
   // 历史最佳 e1RM / 单次容量。同时建两份索引：
   //   - 按 name：兼容没有 exerciseId 的早期记录
@@ -766,11 +778,14 @@
     const prevBest = (prevBestOf(old, e) || {}).val || 0;
     const isNewPR = curBest > 0 && curBest > prevBest + 0.01;
 
+    const repIdx = e.type === "time" ? [] : repIdxOf(e.sets);
     const rows = e.sets.map((s, si) => {
       const isPR = isNewPR && si === curBestIdx;
       return '<tr><td class="set-idx">' + (si + 1) + "</td><td>" +
         '<button class="set-row-btn set-main" data-act="edit-set" data-i="' + i + '" data-si="' + si + '">' +
-        setText(s, e.type, unitOf(e)) + (isPR ? '<span class="pr-tag">PR</span>' : "") + "</button></td>" +
+        setText(s, e.type, unitOf(e)) +
+        (repIdx[si] ? '<span class="rep-idx">×' + repIdx[si] + "</span>" : "") +
+        (isPR ? '<span class="pr-tag">PR</span>' : "") + "</button></td>" +
         '<td class="set-e1rm">' + (e.type === "time" || setE1RM(s) <= 0 ? "—" : U.fmt(setE1RM(s))) + "</td></tr>";
     }).join("");
     return '<div class="ex-card">' +
@@ -1092,8 +1107,10 @@
 
   /* ================= 训练详情 ================= */
   function exCardReadonly(e) {
+    const repIdx = e.type === "time" ? [] : repIdxOf(e.sets);
     const rows = e.sets.map((s, si) =>
-      '<tr><td class="set-idx">' + (si + 1) + '</td><td class="set-main">' + setText(s, e.type, unitOf(e)) + "</td>" +
+      '<tr><td class="set-idx">' + (si + 1) + '</td><td class="set-main">' + setText(s, e.type, unitOf(e)) +
+      (repIdx[si] ? '<span class="rep-idx">×' + repIdx[si] + "</span>" : "") + "</td>" +
       '<td class="set-e1rm">' + (e.type === "time" || setE1RM(s) <= 0 ? "—" : U.fmt(setE1RM(s))) + "</td></tr>").join("");
     return '<div class="ex-card"><div class="ex-head"><span class="grow"><b>' + esc(e.name) + "</b><small>" + e.cat + "</small></span>" +
       '<span class="ex-cat">' + fmtVol(exVol(e)) + "</span></div>" +
