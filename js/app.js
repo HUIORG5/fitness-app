@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v71";
+  const APP_VERSION = "v72";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -1765,6 +1765,12 @@
   function openSettings() { switchTab("me"); }
 
   /* ---------- 我的（账号 / 偏好 / 数据 / 关于） ---------- */
+  // 是否从主屏图标启动（而不是浏览器标签页里）
+  // iOS 老属性 navigator.standalone，其它平台用 display-mode 媒体查询
+  function isStandalone() {
+    if (window.navigator.standalone === true) return true;
+    return !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  }
   /* 添加到桌面：图文步骤，图片在 img/guide/ */
   function openInstallGuide() {
     openSub("添加到桌面",
@@ -1805,11 +1811,13 @@
         '<span class="me-arrow">›</span></button>';
     }
 
-    // 添加到桌面：给还没装到主屏的人（尤其是被推荐来的朋友）一份图文步骤
-    html += '<button class="me-card me-card-guide" data-act="open-install-guide">' +
-      '<span class="me-ava me-ava-guest">' + icon("download", 22) + "</span>" +
-      '<span class="me-info"><b>添加到桌面</b><span>装到主屏，点开就是全屏 App</span></span>' +
-      '<span class="me-arrow">›</span></button>';
+    // 添加到桌面：只在浏览器里打开时提示。已经装到主屏的人（standalone）不需要再看到
+    if (!isStandalone()) {
+      html += '<button class="me-card me-card-guide" data-act="open-install-guide">' +
+        '<span class="me-ava me-ava-guest">' + icon("download", 22) + "</span>" +
+        '<span class="me-info"><b>添加到桌面</b><span>装到主屏，点开就是全屏 App</span></span>' +
+        '<span class="me-arrow">›</span></button>';
+    }
 
     // 训练偏好
     html += '<div class="section-title">训练偏好</div><div class="list">' +
