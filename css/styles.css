@@ -138,6 +138,10 @@ svg{display:block;}
 .acct-info .row-sub{margin-top:3px;font-size:12.5px;letter-spacing:.2px;}
 .row .grow{flex:1;min-width:0;}
 .row .val{color:var(--text-2);font-size:15px;}
+/* 首页训练计划那两行：比普通行矮一点，别占掉首屏太多 */
+.row.plan-row{padding:10px 16px;}
+.row.plan-row b{display:block;font-size:16px;font-weight:600;}
+.row.plan-row small{display:block;font-size:12.5px;color:var(--text-2);margin-top:1px;}
 .chevron{color:var(--text-3);flex:none;}
 /* 动作库拖动把手：按住右侧 ≡ 上下拖动即可排序 */
 .ex-drag{color:var(--text-3);flex:none;display:grid;place-items:center;width:28px;height:36px;

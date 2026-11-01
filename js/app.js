@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v68";
+  const APP_VERSION = "v69";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -392,16 +392,16 @@
     // 训练计划入口：有计划就列出前两个，点击直接开始
     const plans = Store.livePlans();
     if (plans.length) {
-      html += '<div class="section-title">训练计划</div><div class="list">' +
+      // 「管理 / 新建」收到标题右侧，省掉卡片里一整行
+      html += '<div class="section-title with-more"><span>训练计划</span>' +
+        '<button class="st-more" data-act="plan-list">' +
+        (plans.length > 2 ? "共 " + plans.length + " 个 ›" : "管理 ›") + "</button></div>" +
+        '<div class="list">' +
         plans.slice(0, 2).map((p) =>
-          '<button class="row" data-act="plan-detail" data-id="' + p.id + '">' +
+          '<button class="row plan-row" data-act="plan-detail" data-id="' + p.id + '">' +
           '<span class="grow"><b>' + esc(p.name) + "</b>" +
-          '<small style="display:block;color:var(--text-2);font-size:13px;margin-top:2px">' +
-          p.items.length + " 个动作</small></span>" +
+          '<small>' + p.items.length + " 个动作</small></span>" +
           '<span class="val">开始</span></button>').join("") +
-        '<button class="row" data-act="plan-list"><span class="grow" style="color:var(--blue)">' +
-        (plans.length > 2 ? "查看全部 " + plans.length + " 个计划" : "管理计划 · 新建") + "</span>" +
-        '<span class="val">＋</span></button>' +
         "</div>";
     } else {
       // 必须包一层 .list：圆角/白卡/阴影都由 .list 提供，裸 .row 会变成一个直角长条
