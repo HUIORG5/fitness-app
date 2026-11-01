@@ -639,3 +639,13 @@ svg{display:block;}
 }
 .me-sync:active{opacity:.6;}
 .me-arrow{flex:none;color:var(--text-3);font-size:20px;line-height:1;padding-right:2px;}
+/* 「添加到桌面」入口：比身份卡矮一点，不抢主视觉 */
+.me-card-guide .me-ava{width:44px;height:44px;}
+.me-card-guide .me-info b{font-size:16px;}
+/* 添加到桌面 · 图文步骤 */
+.guide-lead{font-size:14px;color:var(--text-2);line-height:1.65;margin:2px 0 4px;}
+.guide-step{display:flex;gap:10px;align-items:flex-start;margin:20px 0 10px;}
+.guide-step b{flex:none;width:22px;height:22px;border-radius:50%;background:var(--blue);color:#fff;
+  font-size:12.5px;font-weight:700;display:grid;place-items:center;}
+.guide-step span{flex:1;font-size:15px;font-weight:600;line-height:1.5;padding-top:1px;}
+.guide-img{display:block;width:100%;height:auto;border-radius:12px;border:.5px solid var(--sep);background:#fff;}

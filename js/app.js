@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v70";
+  const APP_VERSION = "v71";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -1765,6 +1765,18 @@
   function openSettings() { switchTab("me"); }
 
   /* ---------- 我的（账号 / 偏好 / 数据 / 关于） ---------- */
+  /* 添加到桌面：图文步骤，图片在 img/guide/ */
+  function openInstallGuide() {
+    openSub("添加到桌面",
+      '<div class="guide-lead">把「练了吗」放到手机主屏，点开直接全屏进入，不用每次打开浏览器输网址。</div>' +
+      '<div class="guide-step"><b>1</b><span>用 Safari 打开本页，点地址栏左边的「⋯」</span></div>' +
+      '<img class="guide-img" src="img/guide/step1.png" alt="点省略号按钮">' +
+      '<div class="guide-step"><b>2</b><span>在弹出的菜单里点「共享」</span></div>' +
+      '<img class="guide-img" src="img/guide/step2.png" alt="点共享">' +
+      '<div class="guide-step"><b>3</b><span>往下滑，找到并点「添加到主屏幕」</span></div>' +
+      '<img class="guide-img" src="img/guide/step3.png" alt="添加到主屏幕">' +
+      '<p class="set-note" style="margin:18px 0 0">安卓手机：在 Chrome 右上角菜单里也能找到「添加到主屏幕」。</p>');
+  }
   function renderMe() {
     const box = $("#me-content");
     if (!box) return;
@@ -1792,6 +1804,12 @@
         '<span class="me-info"><b>登录 / 注册</b><span>云端备份 · 多设备同步</span></span>' +
         '<span class="me-arrow">›</span></button>';
     }
+
+    // 添加到桌面：给还没装到主屏的人（尤其是被推荐来的朋友）一份图文步骤
+    html += '<button class="me-card me-card-guide" data-act="open-install-guide">' +
+      '<span class="me-ava me-ava-guest">' + icon("download", 22) + "</span>" +
+      '<span class="me-info"><b>添加到桌面</b><span>装到主屏，点开就是全屏 App</span></span>' +
+      '<span class="me-arrow">›</span></button>';
 
     // 训练偏好
     html += '<div class="section-title">训练偏好</div><div class="list">' +
@@ -2390,6 +2408,7 @@
     "picker-cat": (el) => { picker.cat = el.dataset.cat; renderPicker(); },
     "pick-exercise": (el) => pickExercise(el.dataset.id),
     "open-all-history": openHistoryView,
+    "open-install-guide": openInstallGuide,
     "toggle-stats": toggleStats,
     "open-workout-detail": (el) => openWorkoutDetail(el.dataset.id),
     "repeat-workout": (el) => repeatWorkout(el.dataset.id),
