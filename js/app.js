@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v75";
+  const APP_VERSION = "v76";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -438,6 +438,13 @@
   function renderExercises() {
     $("#category-chips").innerHTML = Store.CATS.map((c) =>
       '<button class="chip' + (exFilter.cat === c ? " active" : "") + '" data-act="filter-cat" data-cat="' + c + '">' + c + "</button>").join("");
+    // 拖过排序后「按训练次数排」就不再生效了，给一条退回去的入口，否则用户会以为排序坏了
+    const hint = $("#ex-order-hint");
+    if (hint) {
+      const hasOrder = (Store.data.exOrder || []).length > 0;
+      hint.innerHTML = "按住右侧 ≡ 可拖动排序" +
+        (hasOrder ? ' · <button class="hint-link" data-act="reset-ex-order">改回按训练次数排序</button>' : "");
+    }
     const q = exFilter.q.trim().toLowerCase();
     const list = Store.allExercises().filter((e) => {
       if (q) return e.name.toLowerCase().indexOf(q) >= 0;   // 搜索时不限分类
@@ -965,8 +972,13 @@
     }
     let lastHtml = "";
     if (last && last.sets.length) {
+      // 每条都能点：点一下把那次的数据填进当前输入框，省得照着抄
       lastHtml = '<div class="last-sets"><b>上次（' + fmtDate(new Date(last.date)) + "）</b>" +
-        last.sets.slice(-5).map((s) => '<span class="ls-item">' + setText(s, last.type, unitOf(e)) + "</span>").join("") + "</div>";
+        last.sets.slice(-5).map((s) =>
+          '<button class="ls-item" data-act="apply-last" data-kg="' + (s.kg || 0) +
+          '" data-reps="' + (s.reps || 0) + '" data-sec="' + (s.sec || 0) + '">' +
+          setText(s, last.type, unitOf(e)) + "</button>").join("") +
+        '<span class="ls-tip">点一下填入</span></div>';
     }
     $("#sheet-content").innerHTML =
       '<div class="sheet-title">' + (editing ? "修改组" : "添加组") + " · " + esc(e.name) + "</div>" +
@@ -2476,6 +2488,23 @@
     "inc-sec": () => bump("#in-sec", draft && draft.unit === "min" ? 1 : 15),
     "dec-sec": () => bump("#in-sec", draft && draft.unit === "min" ? -1 : -15),
     "quick-sec": (el) => { $("#in-sec").value = el.dataset.v; },
+    // 点「上次」里的某一条，把重量/次数（或时长）填进当前输入框
+    "apply-last": (el) => {
+      const w = Store.data.activeWorkout;
+      if (!w || !draft) return;
+      const e = w.exercises[draft.i];
+      if (!e) return;
+      if (e.type === "time") {
+        const sec = parseInt(el.dataset.sec, 10) || 0;
+        const inp = $("#in-sec");
+        if (inp) inp.value = draft.unit === "min" ? Math.round(sec / 60) : sec;
+      } else {
+        const kgInp = $("#in-kg"), repsInp = $("#in-reps");
+        if (kgInp) kgInp.value = U.fmt(parseFloat(el.dataset.kg) || 0);
+        if (repsInp) repsInp.value = String(parseInt(el.dataset.reps, 10) || 0);
+      }
+      toast("已填入上次的数据");
+    },
     "finish-workout": finishWorkout,
     "save-workout-final": saveWorkoutFinal,
     "discard-workout-final": discardWorkoutFinal,
@@ -2533,6 +2562,14 @@
     "hide-builtin": (el) => hideBuiltin(el.dataset.id),
     "restore-builtin": (el) => restoreBuiltin(el.dataset.id),
     "reset-exercises": openResetSheet,
+    // 清掉手动拖动排序，回到「练得多的排前面」
+    "reset-ex-order": () => {
+      Store.data.exOrder = [];
+      Store.touchLib();
+      Store.save();
+      renderExercises();
+      toast("已改回按训练次数排序");
+    },
     "reset-confirm": applyReset,
     "reset-cancel": closeSheet,
     "add-custom-exercise": () => openCustomExercise(null),

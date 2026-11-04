@@ -70,6 +70,8 @@
     { id: "b_pendlay",                  name: "潘德雷划船", cat: "背", type: "reps" },
     { id: "b_tbar_row",                 name: "宽握 T 杠划船", cat: "背", type: "reps" },
     { id: "b_tbar_row_narrow",          name: "窄握 T 杠划船", cat: "背", type: "reps" },
+    { id: "b_tbar_row_neutral",         name: "对握 T 杠划船", cat: "背", type: "reps" },
+    { id: "b_tbar_row_reverse",         name: "反握 T 杠划船", cat: "背", type: "reps" },
     { id: "b_landmine_row",             name: "地雷管划船", cat: "背", type: "reps" },
 
     // 背部 · 坐姿 / 器械划船
@@ -338,12 +340,21 @@
   }
 
   // 每个动作被练过几次（按 exerciseId 计，改过名也算同一个动作）
+  // 每个动作「练过多少」，用于排序：
+  //  - 次数动作按做过几次（不是组数）
+  //  - 计时动作按累计分钟折算成次数（10 分钟算 1 次），这样有氧之间比的是总投入时长，
+  //    跑 1 次 60 分钟会排在跑 5 次 5 分钟前面
   function exFreq() {
     const m = {};
     data.workouts.forEach((w) => {
       w.exercises.forEach((e) => {
         const k = e.exerciseId || ("n:" + e.name);
-        m[k] = (m[k] || 0) + 1;
+        if (e.type === "time") {
+          const sec = e.sets.reduce((a, s) => a + (s.sec || 0), 0);
+          m[k] = (m[k] || 0) + sec / 600;
+        } else {
+          m[k] = (m[k] || 0) + 1;
+        }
       });
     });
     return m;
