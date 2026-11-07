@@ -246,6 +246,17 @@ svg{display:block;}
 .cal-legend i{width:7px;height:7px;border-radius:50%;display:block;}
 .cal-sum{font-size:12.5px;color:var(--text-2);text-align:center;margin-top:10px;}
 
+/* 月度小结：接在日历下面，翻月时跟着换 */
+.ms-box{background:var(--card);border-radius:16px;padding:14px 16px;margin:0 0 16px;box-shadow:var(--shadow);}
+.ms-head{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;color:var(--text-2);font-weight:600;}
+.ms-delta{font-size:12px;font-weight:700;color:var(--text-3);}
+.ms-delta.up{color:#2F8F4E;}
+.ms-delta.down{color:#C2453A;}
+.ms-main{font-size:26px;font-weight:800;letter-spacing:-.5px;margin:6px 0 2px;font-variant-numeric:tabular-nums;}
+.ms-line{font-size:13px;color:var(--text-2);line-height:1.5;}
+.ms-week{font-size:12.5px;color:var(--text-3);margin-top:10px;padding-top:10px;border-top:.5px solid var(--sep);}
+.ms-empty{font-size:13.5px;color:var(--text-3);margin:8px 0 2px;}
+
 .history-row{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:.5px solid var(--sep);width:100%;text-align:left;background:var(--card);}
 .history-row:last-child{border-bottom:none;}
 .history-row:active{background:var(--card-2);}

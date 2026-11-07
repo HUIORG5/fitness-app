@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v85";
+  const APP_VERSION = "v86";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -878,7 +878,74 @@
   }
   function renderCal() {
     const box = $("#history-cal");
-    if (box) box.innerHTML = calendarHtml(calCursor.y, calCursor.m);
+    if (!box) return;
+    // 日历和月度小结一起画：翻月份时两边数据得同步换
+    box.innerHTML = calendarHtml(calCursor.y, calCursor.m) + summaryHtml(calCursor.y, calCursor.m);
+  }
+  /* ---------- 月度小结：接在日历下面，不额外占入口 ---------- */
+  function monthSummary(y, m) {
+    const inMonth = (w, yy, mm) => {
+      const d = new Date(w.startedAt);
+      return d.getFullYear() === yy && d.getMonth() === mm;
+    };
+    const ws = Store.data.workouts.filter((w) => inMonth(w, y, m));
+    const vol = ws.reduce((a, w) => a + workoutVol(w), 0);
+    const sec = ws.reduce((a, w) => a + workoutSec(w), 0);
+    const mins = ws.reduce((a, w) => a + Math.max(0, (w.endedAt - w.startedAt) / 60000), 0);
+    // 部位按「练过几次」算，同一次训练里同一个部位只记一次
+    const catN = {};
+    ws.forEach((w) => {
+      const seen = {};
+      w.exercises.forEach((e) => {
+        if (!e.cat || seen[e.cat]) return;
+        seen[e.cat] = 1;
+        catN[e.cat] = (catN[e.cat] || 0) + 1;
+      });
+    });
+    const topCat = Object.keys(catN).sort((a, b) => catN[b] - catN[a])[0] || "";
+    const pm = m === 0 ? { y: y - 1, m: 11 } : { y: y, m: m - 1 };
+    const prev = Store.data.workouts.filter((w) => inMonth(w, pm.y, pm.m));
+    return {
+      count: ws.length, vol, sec,
+      avgMin: ws.length ? Math.round(mins / ws.length) : 0,
+      topCat, topCatN: catN[topCat] || 0,
+      prevVol: prev.reduce((a, w) => a + workoutVol(w), 0),
+    };
+  }
+  function deltaHtml(cur, prev) {
+    if (!prev) return cur > 0 ? '<span class="ms-delta">本月新增</span>' : "";
+    const pct = Math.round(((cur - prev) / prev) * 100);
+    if (!pct) return '<span class="ms-delta flat">跟上月持平</span>';
+    return '<span class="ms-delta ' + (pct > 0 ? "up" : "down") + '">' +
+      (pct > 0 ? "↑ " : "↓ ") + Math.abs(pct) + "%</span>";
+  }
+  function summaryHtml(y, m) {
+    const s = monthSummary(y, m);
+    const now = new Date();
+    const isThisMonth = now.getFullYear() === y && now.getMonth() === m;
+    if (!s.count) {
+      return '<div class="ms-box"><div class="ms-head">' + (m + 1) + ' 月小结</div>' +
+        '<p class="ms-empty">这个月还没有训练记录</p></div>';
+    }
+    // 有重量看容量，纯有氧看时长
+    const main = s.vol > 0 ? fmtVol(s.vol) : fmtMins(Math.round(s.sec / 60));
+    const line = [s.count + " 次训练",
+      s.avgMin ? "平均 " + s.avgMin + " 分钟" : "",
+      s.topCat ? "最常练 " + esc(s.topCat) + " ×" + s.topCatN : ""].filter(Boolean).join(" · ");
+    // 最近 7 天只在当前月有意义，翻到历史月份就不显示
+    let week = "";
+    if (isThisMonth) {
+      const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6).setHours(0, 0, 0, 0);
+      const ws = Store.data.workouts.filter((w) => w.startedAt >= from);
+      const wv = ws.reduce((a, w) => a + workoutVol(w), 0);
+      week = '<div class="ms-week">最近 7 天：' + ws.length + " 次" +
+        (wv > 0 ? " · " + fmtVol(wv) : "") + "</div>";
+    }
+    return '<div class="ms-box">' +
+      '<div class="ms-head">' + (m + 1) + " 月小结" + deltaHtml(s.vol, s.prevVol) + "</div>" +
+      '<div class="ms-main">' + main + "</div>" +
+      '<div class="ms-line">' + line + "</div>" +
+      week + "</div>";
   }
   function shiftCal(delta) {
     const t = new Date(calCursor.y, calCursor.m + delta, 1);
