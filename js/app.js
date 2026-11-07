@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v78";
+  const APP_VERSION = "v80";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -767,15 +767,50 @@
   }
   /* ---------- 训练日历：整月一眼看清哪天练了、哪天休息 ---------- */
   const calCursor = { y: new Date().getFullYear(), m: new Date().getMonth() };
+  // 部位配色：一天练几个部位，就用几段不同颜色的弧线拼成一个「手画的圈」
+  // 挑色原则：别让两个常见组合撞色系（原来肩的青绿和有氧的黄绿在图上分不出来）
+  const CAT_COLORS = {
+    胸: "#378ADD", 背: "#7F77DD", 腿: "#D85A30", 肩: "#EF9F27",
+    臂: "#D4537E", 核心: "#0F6E56", 有氧: "#639922",
+  };
+  const CAT_COLOR_FALLBACK = "#888780";
+  // 把圆周切成 n 段，每段一种颜色、起点稍微错开，留一点缺口才像手画的
+  function dayRings(cats) {
+    const R = 13.2, C = 2 * Math.PI * R;
+    const n = Math.min(cats.length, 3);
+    const gap = C * (n === 1 ? 0.16 : 0.07);
+    const len = (C - gap) / n;
+    let out = "";
+    for (let i = 0; i < n; i++) {
+      const color = CAT_COLORS[cats[i]] || CAT_COLOR_FALLBACK;
+      const rot = (360 / n) * i - 90 + i * 5;
+      out += '<circle cx="18" cy="18" r="' + R + '" fill="none" stroke="' + color +
+        '" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="' + len.toFixed(1) + " " +
+        (C - len).toFixed(1) + '" transform="rotate(' + rot + ' 18 18)"/>';
+    }
+    return out;
+  }
   function calendarHtml(y, m) {
-    const trained = {};
+    const dayInfo = {};   // 日 -> { total, vol, cats }
     let total = 0;
     Store.data.workouts.forEach((w) => {
       const d = new Date(w.startedAt);
-      if (d.getFullYear() === y && d.getMonth() === m) {
-        trained[d.getDate()] = (trained[d.getDate()] || 0) + 1;
-        total++;
-      }
+      if (d.getFullYear() !== y || d.getMonth() !== m) return;
+      total++;
+      const info = dayInfo[d.getDate()] || (dayInfo[d.getDate()] = { total: 0, vol: {}, cats: [] });
+      info.total++;
+      w.exercises.forEach((e) => {
+        if (!e.cat) return;
+        // 计时动作按分钟算，次数动作按容量算；同一天通常同类，混着排也够用
+        const amount = e.type === "time"
+          ? e.sets.reduce((a, s) => a + (s.sec || 0), 0) / 60
+          : exVol(e);
+        info.vol[e.cat] = (info.vol[e.cat] || 0) + amount;
+      });
+    });
+    Object.keys(dayInfo).forEach((k) => {
+      const info = dayInfo[k];
+      info.cats = Object.keys(info.vol).sort((a, b) => info.vol[b] - info.vol[a]);
     });
     const days = new Date(y, m + 1, 0).getDate();
     const startDow = (new Date(y, m, 1).getDay() + 6) % 7;   // 周一开头
@@ -784,17 +819,27 @@
     let cells = "";
     for (let i = 0; i < startDow; i++) cells += '<span class="cal-cell"></span>';
     for (let d = 1; d <= days; d++) {
-      const on = !!trained[d];
+      const info = dayInfo[d];
+      const cats = info ? info.cats : [];
       const isToday = isThisMonth && today.getDate() === d;
-      cells += '<span class="cal-cell' + (on ? " on" : "") + (isToday ? " today" : "") + '">' + d + "</span>";
+      cells += '<span class="cal-cell' + (cats.length ? " on" : "") + (isToday ? " today" : "") + '">' +
+        (cats.length ? '<svg class="cal-ring" viewBox="0 0 36 36" aria-hidden="true">' + dayRings(cats) + "</svg>" : "") +
+        '<span class="cal-num">' + d + "</span></span>";
     }
-    const trainedDays = Object.keys(trained).length;
+    const trainedDays = Object.keys(dayInfo).length;
     // 还没过完的月份只统计到今天，"休息多少天"才不会算上未来
     const elapsed = isThisMonth ? today.getDate() : days;
     const restDays = Math.max(0, elapsed - trainedDays);
     const sum = trainedDays
       ? "练了 " + trainedDays + " 天 · 休息 " + restDays + " 天" + (total > trainedDays ? " · 共 " + total + " 次" : "")
       : "这个月还没有训练记录";
+    // 本月出现过的部位做个色标，不然一圈颜色看不懂
+    const seen = [];
+    Object.keys(dayInfo).forEach((k) => dayInfo[k].cats.forEach((c) => { if (seen.indexOf(c) < 0) seen.push(c); }));
+    const legend = seen.length
+      ? '<div class="cal-legend">' + seen.map((c) =>
+        '<span><i style="background:' + (CAT_COLORS[c] || CAT_COLOR_FALLBACK) + '"></i>' + esc(c) + "</span>").join("") + "</div>"
+      : "";
     return '<div class="cal-box">' +
       '<div class="cal-head"><button class="cal-nav" data-act="cal-prev" aria-label="上个月">‹</button>' +
       "<b>" + y + " 年 " + (m + 1) + " 月</b>" +
@@ -802,6 +847,7 @@
       '<div class="cal-grid">' +
       ["一", "二", "三", "四", "五", "六", "日"].map((x) => '<span class="cal-dow">' + x + "</span>").join("") +
       cells + "</div>" +
+      legend +
       '<div class="cal-sum">' + sum + "</div></div>";
   }
   function renderCal() {
