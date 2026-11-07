@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v83";
+  const APP_VERSION = "v84";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -2001,6 +2001,20 @@
   }
 
   /* ================= 设置 ================= */
+  /* 设置（单位 / 主题 / 默认重量次数）改动后统一走这里：
+     打时间戳 → 存本地 → 登录了就顺手推到云端。
+     防抖 1.5 秒，连续按步进器只会推最后一次。 */
+  let settingsPushTimer = 0;
+  function saveSettings() {
+    Store.data.settings.settingsAt = Date.now();
+    Store.save();
+    if (Cloud.isLoggedIn()) {
+      clearTimeout(settingsPushTimer);
+      settingsPushTimer = setTimeout(() => {
+        Cloud.pushSettings(Store.data.settings).catch(() => {});
+      }, 1500);
+    }
+  }
   function saveDefInputs() {
     const kg = $("#in-defkg"), rp = $("#in-defreps");
     if (!kg || !rp) return;
@@ -2010,9 +2024,8 @@
     // 用户真的动过次数才置标记：之后第一组固定用这个次数（否则跟随上次训练）
     if (nextReps !== st.defaultReps) st.repsCustom = true;
     st.defaultReps = nextReps;
-    Store.save();
+    saveSettings();
   }
-  /* 设置已经并入「我的」tab：任何旧的“打开设置”入口都退化成切 tab */
   function openSettings() { switchTab("me"); }
 
   /* ---------- 我的（账号 / 偏好 / 数据 / 关于） ---------- */
@@ -2157,7 +2170,7 @@
     const nextReps = Math.max(1, Math.round(parseFloat(rp.value) || 1));
     if (nextReps !== st.defaultReps) st.repsCustom = true;   // 与「我的」页保持一致
     st.defaultReps = nextReps;
-    Store.save();
+    saveSettings();
   }
 
   // 重绘「我的」并保持滚动位置（改单位/主题后调用）
@@ -2470,6 +2483,17 @@
     updateNavAvatar();
     const p = Cloud.getProfile();
     if (!p) return;
+    // 设置跟着账号走：云端那份更新（换设备、或从 Safari 切到主屏 App 后本地是全新默认值）
+    // 就拉下来覆盖本地；云端还没有而本地改过，就把本地这份推上去。
+    const rs = p.settings;
+    if (rs && (rs.settingsAt || 0) > (Store.data.settings.settingsAt || 0)) {
+      Store.data.settings = Object.assign({}, Store.data.settings, rs);
+      Store.save();
+      applyTheme();
+      rerenderMe();
+    } else if (!rs && (Store.data.settings.settingsAt || 0) > 0) {
+      Cloud.pushSettings(Store.data.settings).catch(() => {});
+    }
     const av = $("#me-content .me-ava img");
     if (av && p.avatar_url) av.src = p.avatar_url;
     const nk = $("#profile-nickname-text");
@@ -2739,8 +2763,8 @@
     "custom-cat": (el) => { customDraft.cat = el.dataset.v; renderCustomDraft(); },
     "custom-type": (el) => { customDraft.type = el.dataset.v; renderCustomDraft(); },
     "save-custom-exercise": saveCustomExercise,
-    "set-unit": (el) => { Store.data.settings.unit = el.dataset.v; Store.save(); rerenderMe(); renderAll(); },
-    "set-theme": (el) => { Store.data.settings.theme = el.dataset.v; Store.save(); applyTheme(); rerenderMe(); renderAll(); },
+    "set-unit": (el) => { Store.data.settings.unit = el.dataset.v; saveSettings(); rerenderMe(); renderAll(); },
+    "set-theme": (el) => { Store.data.settings.theme = el.dataset.v; saveSettings(); applyTheme(); rerenderMe(); renderAll(); },
     "export-data": exportData,
     "import-data": importData,
     "clear-data": clearData,

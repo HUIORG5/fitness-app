@@ -208,6 +208,19 @@
     return { ok: true, url: url };
   }
 
+  /* ---------- 设置（跟账号走） ----------
+   * 单位 / 默认重量 / 默认次数 / 主题以前只存本机 localStorage：换设备、或者从 Safari
+   * 切到主屏 App（iOS 上是两套独立存储）就会退回默认值。现在存进 profiles.settings。
+   * 数据库还没加这一列时 update 会报错，这里静默返回，不影响其它功能。 */
+  async function pushSettings(obj) {
+    if (!client || !user || !obj) return { ok: false };
+    const { error } = await client.from("profiles")
+      .update({ settings: obj, updated_at: new Date().toISOString() }).eq("id", user.id);
+    if (error) return { error: error.message };
+    if (profile) profile.settings = obj;
+    return { ok: true };
+  }
+
   /* ---------- 训练数据 ---------- */
   function mapRemoteWorkout(w) {
     return {
@@ -560,6 +573,7 @@
     isLoggedIn: () => !!user,
     signUp, signIn, signOut, resetPassword, updatePassword, deleteAccountRemote,
     updateNickname, uploadAvatar, uploadAvatarBlob, syncExerciseLib,
+    pushSettings,
     fetchWorkouts, pushWorkout, sync,
     deleteRemoteWorkout, wipeRemoteWorkouts,
     getLastSyncAt: () => lastSyncAt,

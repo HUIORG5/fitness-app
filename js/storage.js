@@ -307,7 +307,8 @@
     plans: [],             // 训练计划 [{id,name,note,items:[{id,exerciseId,name,cat,type,sets,reps,kg}],createdAt,updatedAt,deleted}]
     planDeleted: [],       // 计划墓碑 [{id, at}]
     planUpdatedAt: 0,      // 计划库最后一次改动时间，用于跨设备合并
-    settings: { unit: "kg", theme: "system", defaultKg: 0, defaultReps: 10, repsCustom: false },
+    // settingsAt：这份设置最后一次改动的时间，用来和云端的比谁更新（换设备时靠它决定听谁的）
+    settings: { unit: "kg", theme: "system", defaultKg: 0, defaultReps: 10, repsCustom: false, settingsAt: 0 },
   };
 
   function load() {
