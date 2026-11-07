@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v80";
+  const APP_VERSION = "v82";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -470,6 +470,15 @@
     list.forEach((e) => { (groups[e.cat] = groups[e.cat] || []).push(e); });
     const keys = order.filter((k) => groups[k]).concat(Object.keys(groups).filter((k) => order.indexOf(k) < 0));
     const bm = bestMaps();
+    // 有氧动作右侧显示"累计练了多久"，比干巴巴一个「计时」有用；没练过才退回计时标签
+    const timeMap = {};
+    if (list.some((e) => e.type === "time")) {
+      Store.data.workouts.forEach((w) => w.exercises.forEach((e) => {
+        if (e.type !== "time") return;
+        const k = e.exerciseId || ("n:" + e.name);
+        timeMap[k] = (timeMap[k] || 0) + e.sets.reduce((a, s) => a + (s.sec || 0), 0);
+      }));
+    }
     let html = "";
     keys.forEach((k) => {
       html += '<div class="section-title">' + k + "</div><div class=\"list\">" +
@@ -480,7 +489,9 @@
             (e.custom ? ' <span class="ex-cat">自定义</span>' : "") + "</span>" +
             // 最佳 e1RM 直接标在动作后面，不用再翻统计页
             (b ? '<span class="ex-best">' + U.fmt(b.val) + "<small>" + U.cur() + "</small></span>" : "") +
-            (e.type === "time" ? '<span class="val">' + typeTag(e.type) + "</span>" : "") +
+            (e.type === "time"
+              ? '<span class="val">' + (timeMap[e.id] ? fmtMins(Math.round(timeMap[e.id] / 60)) : typeTag(e.type)) + "</span>"
+              : "") +
             '<span class="ex-drag" aria-label="拖动排序">' + icon("list", 16).replace('stroke-width="1.8"', 'stroke-width="2.4"') + "</span>" +
             "</button>";
         }).join("") + "</div>";
@@ -774,19 +785,27 @@
     臂: "#D4537E", 核心: "#0F6E56", 有氧: "#639922",
   };
   const CAT_COLOR_FALLBACK = "#888780";
-  // 把圆周切成 n 段，每段一种颜色、起点稍微错开，留一点缺口才像手画的
-  function dayRings(cats) {
-    const R = 13.2, C = 2 * Math.PI * R;
+  // 画圈：弧长按各部位的训练量分配（练得多的那段更长），段与段之间留缝，收口留白像手画的
+  function dayRings(cats, vols) {
+    const R = 12.4, cx = 18, cy = 18, C = 2 * Math.PI * R;
     const n = Math.min(cats.length, 3);
-    const gap = C * (n === 1 ? 0.16 : 0.07);
-    const len = (C - gap) / n;
-    let out = "";
+    const list = cats.slice(0, n);
+    const vals = (vols || []).slice(0, n).map((v) => (v > 0 ? v : 0.01));
+    const total = vals.reduce((a, b) => a + b, 0) || 1;
+    // 给个下限，否则「胸 4800 vs 肩 120」这种比例下，肩只剩一条几乎看不见的细线
+    const weights = vals.map((v) => Math.max(v / total, 0.12));
+    const wsum = weights.reduce((a, b) => a + b, 0);
+    const gapDeg = n === 1 ? 48 : 10;      // 单圈开口 48 度；多段之间也留 10 度缝
+    const usable = 360 - gapDeg * n;
+    let out = "", at = -90 + gapDeg / 2;
     for (let i = 0; i < n; i++) {
-      const color = CAT_COLORS[cats[i]] || CAT_COLOR_FALLBACK;
-      const rot = (360 / n) * i - 90 + i * 5;
-      out += '<circle cx="18" cy="18" r="' + R + '" fill="none" stroke="' + color +
-        '" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="' + len.toFixed(1) + " " +
-        (C - len).toFixed(1) + '" transform="rotate(' + rot + ' 18 18)"/>';
+      const sweep = usable * (weights[i] / wsum);
+      const len = (C * sweep) / 360;
+      const color = CAT_COLORS[list[i]] || CAT_COLOR_FALLBACK;
+      out += '<circle cx="' + cx + '" cy="' + cy + '" r="' + R + '" fill="none" stroke="' + color +
+        '" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="' + len.toFixed(1) + " " +
+        (C - len).toFixed(1) + '" transform="rotate(' + at.toFixed(1) + " " + cx + " " + cy + ')"/>';
+      at += sweep + gapDeg;
     }
     return out;
   }
@@ -821,9 +840,10 @@
     for (let d = 1; d <= days; d++) {
       const info = dayInfo[d];
       const cats = info ? info.cats : [];
+      const vols = info ? info.cats.map((c) => info.vol[c]) : [];
       const isToday = isThisMonth && today.getDate() === d;
       cells += '<span class="cal-cell' + (cats.length ? " on" : "") + (isToday ? " today" : "") + '">' +
-        (cats.length ? '<svg class="cal-ring" viewBox="0 0 36 36" aria-hidden="true">' + dayRings(cats) + "</svg>" : "") +
+        (cats.length ? '<svg class="cal-ring" viewBox="0 0 36 36" aria-hidden="true">' + dayRings(cats, vols) + "</svg>" : "") +
         '<span class="cal-num">' + d + "</span></span>";
     }
     const trainedDays = Object.keys(dayInfo).length;
@@ -833,9 +853,13 @@
     const sum = trainedDays
       ? "练了 " + trainedDays + " 天 · 休息 " + restDays + " 天" + (total > trainedDays ? " · 共 " + total + " 次" : "")
       : "这个月还没有训练记录";
-    // 本月出现过的部位做个色标，不然一圈颜色看不懂
+    // 本月出现过的部位做个色标，按固定顺序排（胸背腿肩臂核心有氧），不然一堆颜色看不懂
     const seen = [];
     Object.keys(dayInfo).forEach((k) => dayInfo[k].cats.forEach((c) => { if (seen.indexOf(c) < 0) seen.push(c); }));
+    seen.sort((a, b) => {
+      const ia = Store.CATS.indexOf(a), ib = Store.CATS.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
     const legend = seen.length
       ? '<div class="cal-legend">' + seen.map((c) =>
         '<span><i style="background:' + (CAT_COLORS[c] || CAT_COLOR_FALLBACK) + '"></i>' + esc(c) + "</span>").join("") + "</div>"
@@ -895,19 +919,23 @@
   }
 
   /* ================= 动作趋势 ================= */
-  // 某动作最近 10 次的「单次最佳容量」。按动作 ID 优先匹配，改过名也能接上旧记录
+  // 某动作最近 10 次的趋势值：次数动作取「单次最佳容量」，计时动作取「那次最长的一组多少分钟」
+  // 都按动作 ID 优先匹配，改过名也能接上旧记录
   function trendPoints(ex) {
     if (!ex) return [];
     const id = ex.id, name = ex.name;
     const hit = (it) => (id && it.exerciseId === id) || it.name === name;
+    const isTime = ex.type === "time";
     return Store.data.workouts
       .filter((w) => w.exercises.some(hit))
       .sort((a, b) => a.startedAt - b.startedAt).slice(-10)
       .map((w) => {
         const e = w.exercises.find(hit);
-        const best = e.sets.reduce((a, s) => Math.max(a, setVol(s)), 0);
+        const value = isTime
+          ? Math.round(e.sets.reduce((a, s) => Math.max(a, s.sec || 0), 0) / 60)
+          : U.kgToDisp(e.sets.reduce((a, s) => Math.max(a, setVol(s)), 0));
         const d = new Date(w.startedAt);
-        return { label: d.getMonth() + 1 + "/" + d.getDate(), value: U.kgToDisp(best) };
+        return { label: d.getMonth() + 1 + "/" + d.getDate(), value };
       });
   }
 
@@ -1769,11 +1797,13 @@
         (best ? '<div class="row"><span class="grow">最佳估算1RM</span><span class="val">' + U.fmt(best.val) + " " + U.cur() + "</span></div>" : "") +
         "</div>";
     }
-    // 单次最佳容量趋势（原来在统计页，现在跟着动作走）：一次训练只有一个点，没意义，攒到 2 次再画
+    // 趋势图：一次训练只有一个点没意义，攒到 2 次再画。有氧看时长，重量看容量
     const pts = trendPoints(ex);
+    const isTimeEx = ex.type === "time";
     const trendHtml = pts.length >= 2
-      ? '<div class="section-title">单次最佳容量 · 最近 ' + pts.length + ' 次</div><div class="chart-box"><div id="ex-trend-chart"></div></div>'
-      : '<p class="set-note" style="margin-top:14px">再练一次就能看到容量趋势</p>';
+      ? '<div class="section-title">' + (isTimeEx ? "单次最长时长（分钟）" : "单次最佳容量") + " · 最近 " + pts.length + " 次</div>" +
+        '<div class="chart-box"><div id="ex-trend-chart"></div></div>'
+      : '<p class="set-note" style="margin-top:14px">再练一次就能看到' + (isTimeEx ? "时长" : "容量") + "趋势</p>";
     // 最近几次练这个动作的记录，点进去就是那天的训练详情
     const recentHtml = ws.length
       ? '<div class="section-title">最近记录</div><div class="list">' + ws.slice(0, 6).map((w) => {
@@ -1782,7 +1812,11 @@
           const val = top ? setText(top, ex.type, unitOf(ex)) : "—";
           return '<button class="row" data-act="open-workout-detail" data-id="' + w.id + '">' +
             '<span class="grow">' + fmtDate(new Date(w.startedAt)) +
-            '<span class="row-sub">' + it.sets.length + " 组 · 容量 " + fmtVol(exVol(it)) + "</span></span>" +
+            '<span class="row-sub">' + it.sets.length + " 组 · " +
+            (isTimeEx
+              ? fmtMins(Math.round(it.sets.reduce((a, s) => a + (s.sec || 0), 0) / 60))
+              : "容量 " + fmtVol(exVol(it))) +
+            "</span></span>" +
             '<span class="val">' + val + "</span></button>";
         }).join("") + "</div>"
       : "";
