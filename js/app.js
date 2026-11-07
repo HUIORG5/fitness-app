@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v84";
+  const APP_VERSION = "v85";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -2486,12 +2486,19 @@
     // 设置跟着账号走：云端那份更新（换设备、或从 Safari 切到主屏 App 后本地是全新默认值）
     // 就拉下来覆盖本地；云端还没有而本地改过，就把本地这份推上去。
     const rs = p.settings;
-    if (rs && (rs.settingsAt || 0) > (Store.data.settings.settingsAt || 0)) {
+    // 空对象也是 truthy，不能直接判断 rs —— 用 settingsAt 认「云端到底有没有存过设置」，
+    // 因为 pushSettings 推上去的一定带这个字段
+    const hasRemote = !!(rs && rs.settingsAt);
+    const remoteAt = hasRemote ? (rs.settingsAt || 0) : 0;
+    const localAt = Store.data.settings.settingsAt || 0;
+    if (remoteAt > localAt) {
+      // 云端更新（换了设备 / 从 Safari 切到主屏 App）：拉下来覆盖本地
       Store.data.settings = Object.assign({}, Store.data.settings, rs);
       Store.save();
       applyTheme();
       rerenderMe();
-    } else if (!rs && (Store.data.settings.settingsAt || 0) > 0) {
+    } else if (localAt > remoteAt) {
+      // 本地更新（云端还是空的，或比本地旧）：推上去
       Cloud.pushSettings(Store.data.settings).catch(() => {});
     }
     const av = $("#me-content .me-ava img");
