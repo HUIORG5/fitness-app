@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v76";
+  const APP_VERSION = "v78";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -362,6 +362,14 @@
     if (min < 60) return min + " 分";
     const h = Math.floor(min / 60), m = min % 60;
     return m ? h + " 时 " + m + " 分" : h + " 时";
+  }
+  // 统计卡第一格：有重量显示容量，纯计时训练显示动作累计时长（别再挂个 0 kg）
+  function mainStatOf(w) {
+    const vol = workoutVol(w);
+    if (vol > 0) return { val: fmtVol(vol), label: "总容量" };
+    const sec = workoutSec(w);
+    if (sec > 0) return { val: fmtMins(Math.round(sec / 60)), label: "动作时长" };
+    return { val: fmtVol(0), label: "总容量" };
   }
   function historyRow(w) {
     const d = new Date(w.startedAt);
@@ -748,14 +756,74 @@
     let html = "";
     Object.keys(groups).forEach((k) => {
       const vol = groups[k].reduce((a, w) => a + workoutVol(w), 0);
-      html += '<div class="section-title">' + k + " · " + groups[k].length + " 次 · 容量 " + fmtVol(vol) + "</div>" +
+      const sec = groups[k].reduce((a, w) => a + workoutSec(w), 0);
+      // 纯有氧的月份没有容量，改显示总时长，别再挂个「容量 0 KG」
+      const tail = vol > 0 ? "容量 " + fmtVol(vol)
+        : sec > 0 ? "时长 " + fmtMins(Math.round(sec / 60)) : "";
+      html += '<div class="section-title">' + k + " · " + groups[k].length + " 次" + (tail ? " · " + tail : "") + "</div>" +
         '<div class="list">' + groups[k].map(historyRow).join("") + "</div>";
     });
     return html;
   }
+  /* ---------- 训练日历：整月一眼看清哪天练了、哪天休息 ---------- */
+  const calCursor = { y: new Date().getFullYear(), m: new Date().getMonth() };
+  function calendarHtml(y, m) {
+    const trained = {};
+    let total = 0;
+    Store.data.workouts.forEach((w) => {
+      const d = new Date(w.startedAt);
+      if (d.getFullYear() === y && d.getMonth() === m) {
+        trained[d.getDate()] = (trained[d.getDate()] || 0) + 1;
+        total++;
+      }
+    });
+    const days = new Date(y, m + 1, 0).getDate();
+    const startDow = (new Date(y, m, 1).getDay() + 6) % 7;   // 周一开头
+    const today = new Date();
+    const isThisMonth = today.getFullYear() === y && today.getMonth() === m;
+    let cells = "";
+    for (let i = 0; i < startDow; i++) cells += '<span class="cal-cell"></span>';
+    for (let d = 1; d <= days; d++) {
+      const on = !!trained[d];
+      const isToday = isThisMonth && today.getDate() === d;
+      cells += '<span class="cal-cell' + (on ? " on" : "") + (isToday ? " today" : "") + '">' + d + "</span>";
+    }
+    const trainedDays = Object.keys(trained).length;
+    // 还没过完的月份只统计到今天，"休息多少天"才不会算上未来
+    const elapsed = isThisMonth ? today.getDate() : days;
+    const restDays = Math.max(0, elapsed - trainedDays);
+    const sum = trainedDays
+      ? "练了 " + trainedDays + " 天 · 休息 " + restDays + " 天" + (total > trainedDays ? " · 共 " + total + " 次" : "")
+      : "这个月还没有训练记录";
+    return '<div class="cal-box">' +
+      '<div class="cal-head"><button class="cal-nav" data-act="cal-prev" aria-label="上个月">‹</button>' +
+      "<b>" + y + " 年 " + (m + 1) + " 月</b>" +
+      '<button class="cal-nav" data-act="cal-next" aria-label="下个月"' + (isThisMonth ? " disabled" : "") + ">›</button></div>" +
+      '<div class="cal-grid">' +
+      ["一", "二", "三", "四", "五", "六", "日"].map((x) => '<span class="cal-dow">' + x + "</span>").join("") +
+      cells + "</div>" +
+      '<div class="cal-sum">' + sum + "</div></div>";
+  }
+  function renderCal() {
+    const box = $("#history-cal");
+    if (box) box.innerHTML = calendarHtml(calCursor.y, calCursor.m);
+  }
+  function shiftCal(delta) {
+    const t = new Date(calCursor.y, calCursor.m + delta, 1);
+    const now = new Date();
+    if (t.getFullYear() > now.getFullYear() ||
+      (t.getFullYear() === now.getFullYear() && t.getMonth() > now.getMonth())) return;  // 不往未来翻
+    calCursor.y = t.getFullYear();
+    calCursor.m = t.getMonth();
+    renderCal();
+  }
   function openHistoryView() {
     const box = $("#history-body");
-    box.innerHTML = historyHtml();
+    const now = new Date();
+    calCursor.y = now.getFullYear();
+    calCursor.m = now.getMonth();
+    box.innerHTML = '<div id="history-cal"></div><div id="history-list">' + historyHtml() + "</div>";
+    renderCal();
     box.scrollTop = 0;
     injectIcons(box);
     const was = $("#history-view").classList.contains("show");
@@ -773,7 +841,9 @@
     if (!v || !v.classList.contains("show")) return;
     const box = $("#history-body");
     const st = box.scrollTop;
-    box.innerHTML = historyHtml();
+    // 日历和列表一起重画：删掉某次训练后，圆圈也得跟着消失
+    box.innerHTML = '<div id="history-cal"></div><div id="history-list">' + historyHtml() + "</div>";
+    renderCal();
     injectIcons(box);
     box.scrollTop = st;
   }
@@ -1075,12 +1145,13 @@
     const w = Store.data.activeWorkout;
     if (!w || setCount(w) === 0) { toast("还没有记录任何组数"); return; }
     const prs = detectPRs(w);
+    const stSum = mainStatOf(w);
     $("#sheet-content").innerHTML =
       '<div class="sheet-title">训练完成！</div>' +
       '<div class="sheet-sub">' + esc(w.name) + " · " + fmtDate(new Date(w.startedAt)) + "</div>" +
       '<div class="sum-grid">' +
       '<div class="sum-item"><b>' + fmtDur(Date.now() - w.startedAt) + "</b><small>训练时长</small></div>" +
-      '<div class="sum-item"><b>' + fmtVol(workoutVol(w)) + "</b><small>总容量</small></div>" +
+      '<div class="sum-item"><b>' + stSum.val + "</b><small>" + stSum.label + "</small></div>" +
       '<div class="sum-item"><b>' + w.exercises.length + "</b><small>动作数</small></div>" +
       '<div class="sum-item"><b>' + setCount(w) + "</b><small>总组数</small></div></div>" +
       (prs.length ? '<div class="sum-pr"><b>本次打破 ' + prs.length + ' 项个人记录</b>' +
@@ -1198,29 +1269,36 @@
 
   /* ================= 训练详情 ================= */
   function exCardReadonly(e) {
-    const repIdx = e.type === "time" ? [] : repIdxOf(e.sets);
+    const isTime = e.type === "time";
+    const repIdx = isTime ? [] : repIdxOf(e.sets);
+    // 计时动作没有容量，右上角改显示累计时长；e1RM 那一列也整列不出现（不是摆一排「—」）
+    const badge = isTime
+      ? fmtMins(Math.round(e.sets.reduce((a, s) => a + (s.sec || 0), 0) / 60))
+      : fmtVol(exVol(e));
     const rows = e.sets.map((s, si) =>
       '<tr><td class="set-idx">' + (si + 1) + '</td><td class="set-main">' + setText(s, e.type, unitOf(e)) +
       (repIdx[si] ? '<span class="rep-idx">×' + repIdx[si] + "</span>" : "") + "</td>" +
-      '<td class="set-e1rm">' + (e.type === "time" || setE1RM(s) <= 0 ? "—" : U.fmt(setE1RM(s))) + "</td></tr>").join("");
+      (isTime ? "" : '<td class="set-e1rm">' + (setE1RM(s) <= 0 ? "—" : U.fmt(setE1RM(s))) + "</td>") + "</tr>").join("");
     return '<div class="ex-card"><div class="ex-head"><span class="grow"><b>' + esc(e.name) + "</b><small>" + e.cat + "</small></span>" +
-      '<span class="ex-cat">' + fmtVol(exVol(e)) + "</span></div>" +
-      '<table class="set-table"><tr><th>组</th><th>' + (e.type === "time" ? "时长" : "重量 × 次数") + '</th><th style="text-align:right">e1RM</th></tr>' +
+      '<span class="ex-cat">' + badge + "</span></div>" +
+      '<table class="set-table"><tr><th>组</th><th>' + (isTime ? "时长" : "重量 × 次数") + "</th>" +
+      (isTime ? "" : '<th style="text-align:right">e1RM</th>') + "</tr>" +
       rows + "</table></div>";
   }
   function openWorkoutDetail(id) {
     const w = Store.data.workouts.find((x) => x.id === id);
     if (!w) return;
     const d = new Date(w.startedAt);
+    const st = mainStatOf(w);
     openSub("训练详情",
       '<div class="card card-pad" style="margin-top:12px">' +
       '<div style="font-size:22px;font-weight:800">' + esc(w.name) + "</div>" +
       '<div style="color:var(--text-2);font-size:14px;margin-top:2px">' + fmtDate(d) + " " + fmtWD(d) + " · " + fmtDur(w.endedAt - w.startedAt) + "</div>" +
       '<div class="sum-grid" style="margin:14px 0 0">' +
-      '<div class="sum-item"><b>' + fmtVol(workoutVol(w)) + "</b><small>总容量</small></div>" +
+      '<div class="sum-item"><b>' + st.val + "</b><small>" + st.label + "</small></div>" +
       '<div class="sum-item"><b>' + w.exercises.length + "</b><small>动作数</small></div>" +
       '<div class="sum-item"><b>' + setCount(w) + "</b><small>总组数</small></div>" +
-      '<div class="sum-item"><b>' + fmtClock(w.endedAt - w.startedAt) + "</b><small>时长</small></div></div></div>" +
+      '<div class="sum-item"><b>' + fmtClock(w.endedAt - w.startedAt) + "</b><small>" + (st.label === "总容量" ? "时长" : "总用时") + "</small></div></div></div>" +
       w.exercises.map(exCardReadonly).join("") +
       '<div style="display:flex;gap:10px;margin-top:6px">' +
       '<button class="btn" data-act="share-workout" data-id="' + w.id + '">分享长图</button>' +
@@ -2527,6 +2605,8 @@
     "picker-cat": (el) => { picker.cat = el.dataset.cat; renderPicker(); },
     "pick-exercise": (el) => pickExercise(el.dataset.id),
     "open-all-history": openHistoryView,
+    "cal-prev": () => shiftCal(-1),
+    "cal-next": () => shiftCal(1),
     "open-install-guide": () => {
       // 安卓 / Chrome 能直接弹系统安装框，一键装好；iOS 拿不到这个事件，只能看图文教程
       if (installPrompt) {
