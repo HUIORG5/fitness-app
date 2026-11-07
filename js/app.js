@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v82";
+  const APP_VERSION = "v83";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -795,7 +795,9 @@
     // 给个下限，否则「胸 4800 vs 肩 120」这种比例下，肩只剩一条几乎看不见的细线
     const weights = vals.map((v) => Math.max(v / total, 0.12));
     const wsum = weights.reduce((a, b) => a + b, 0);
-    const gapDeg = n === 1 ? 48 : 10;      // 单圈开口 48 度；多段之间也留 10 度缝
+    const gapDeg = n === 1 ? 48 : 22;
+    // 缝看着要比算出来的宽：stroke-linecap:round 让每段两端各鼓起半个线宽，
+    // 10 度在半径 12.4 的圈上只有 2px，被两个圆头一吃掉就贴在一起了，所以给到 22 度
     const usable = 360 - gapDeg * n;
     let out = "", at = -90 + gapDeg / 2;
     for (let i = 0; i < n; i++) {
@@ -2758,6 +2760,13 @@
     bindExDrag(); // 动作库拖动排序
     bindSwipeBack(); // 右滑返回上一级
     bindBackButton(); // 安卓返回键：先关最上面那层，而不是退出应用
+    // 横屏转回竖屏时 Safari 有时不重算 aspect-ratio，日历会保持横屏的尺寸，宽度一变就重画一次
+    let lastInnerW = window.innerWidth;
+    window.addEventListener("resize", () => {
+      if (Math.abs(window.innerWidth - lastInnerW) < 60) return;
+      lastInnerW = window.innerWidth;
+      if ($("#history-cal")) renderCal();
+    });
     bindKeyboardAvoid(); // 键盘弹出时让弹层让位
     // 安卓 / Chrome：系统愿意装的时候会派发这个事件，先拦住存起来，
     // 等用户真的点「添加到桌面」再放出去，避免一进页面就弹安装框
