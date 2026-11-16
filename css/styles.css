@@ -252,6 +252,10 @@ svg{display:block;}
 .cal-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:5px 12px;margin-top:12px;}
 .cal-legend span{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-2);}
 .cal-legend i{width:7px;height:7px;border-radius:50%;display:block;}
+.cal-legend svg{flex:none;display:block;}
+/* 动作库分类标题带部位图标 */
+.section-title.cat-title{display:flex;align-items:center;gap:6px;}
+.cat-title svg{flex:none;display:block;}
 .cal-sum{font-size:12.5px;color:var(--text-2);text-align:center;margin-top:10px;}
 
 /* 月度小结：接在日历下面，翻月时跟着换 */

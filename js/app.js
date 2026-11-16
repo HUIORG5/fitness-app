@@ -4,35 +4,54 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v90";
+  const APP_VERSION = "v91";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
 
   /* ---------- 图标 ---------- */
   const ICONS = {
-    calendar: '<rect x="3" y="5" width="18" height="16" rx="3.5"/><path d="M8 3v4M16 3v4M3 10h18"/>',
-    dumbbell: '<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/>',
-    list: '<path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><circle cx="4" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.3" fill="currentColor" stroke="none"/>',
-    chart: '<path d="M4 20V12M10 20V5M16 20v-6M22 20H2"/>',
-    sliders: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.3"/><circle cx="9" cy="17" r="2.3"/>',
-    plus: '<path d="M12 5v14M5 12h14"/>',
-    search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/>',
-    trash: '<path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 13.5h10L18 7M10 11v5.5M14 11v5.5"/>',
-    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
-    trophy: '<path d="M7 4h10v4.5a5 5 0 0 1-10 0V4zM7 6H4v1a4 4 0 0 0 4 4M17 6h3v1a4 4 0 0 1-4 4M12 13.5V16M8.5 20h7l-.8-4H9.3L8.5 20z"/>',
-    download: '<path d="M12 4v11M8 11.5l4 3.5 4-3.5M5 19.5h14"/>',
-    upload: '<path d="M12 15.5V4M8 7.5l4-3.5 4 3.5M5 19.5h14"/>',
-    repeat: '<path d="M17 2.5l4 4-4 4M3 11.5v-1a4 4 0 0 1 4-4h14M7 21.5l-4-4 4-4M21 12.5v1a4 4 0 0 1-4 4H3"/>',
-    flame: '<path d="M12 3s5.5 4.8 5.5 10a5.5 5.5 0 0 1-11 0c0-2.2 1-4 2.2-5 0 2.2 1 3.2 2.3 3.2 0-3.4 1.2-5.6 1-8.2z"/>',
-    lock: '<rect x="4.5" y="10.5" width="15" height="10.5" rx="2.6"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/>',
+    calendar: '<rect x="3.5" y="5.5" width="17" height="15" rx="4.5"/><path d="M8 3.2v3M16 3.2v3"/><circle cx="12" cy="13.6" r="1.7" fill="currentColor" stroke="none"/>',
+    dumbbell: '<path d="M6.5 7v10M17.5 7v10M3.5 10v4M20.5 10v4M6.5 12h11"/>',
+    list: '<path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.4" cy="6.5" r="1.6" fill="currentColor" stroke="none"/><circle cx="4.4" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="4.4" cy="17.5" r="1.6" fill="currentColor" stroke="none"/>',
+    chart: '<path d="M4.5 20V13M10 20V6.5M15.5 20v-4.5M4.5 20h15.5"/>',
+    sliders: '<path d="M4 7.5h8M16.5 7.5h3.5M4 16.5h3.5M12 16.5h8"/><circle cx="14.2" cy="7.5" r="2.3"/><circle cx="9.7" cy="16.5" r="2.3"/>',
+    plus: '<path d="M12 5.5v13M5.5 12h13"/>',
+    search: '<circle cx="11" cy="11" r="6.8"/><path d="M20 20l-3.7-3.7"/>',
+    trash: '<path d="M4.5 7.5h15M9.7 7.5V4.8h4.6v2.7M6.3 7.5l1 12h9.4l1-12"/>',
+    clock: '<circle cx="12" cy="12" r="8"/><path d="M12 7.8V12l3.2 2"/>',
+    trophy: '<path d="M7.5 4.5h9v4a4.5 4.5 0 0 1-9 0v-4zM7.5 6H4.5v1.2a3.8 3.8 0 0 0 3 3.6M16.5 6h3v1.2a3.8 3.8 0 0 1-3 3.6M12 13.8V16M8.8 20h6.4l-.7-4H9.5z"/>',
+    download: '<path d="M12 4v11.5M8 12l4 3.5 4-3.5"/><path d="M4.5 20.5h15"/>',
+    upload: '<path d="M12 16V4.5M8 8l4-3.5 4 3.5"/><path d="M4.5 20.5h15"/>',
+    repeat: '<path d="M16.5 3.5l3.5 3.5-3.5 3.5M3.5 11v-.8a3.6 3.6 0 0 1 3.6-3.6h12.9M7.5 20.5L4 17l3.5-3.5M20.5 13v.8a3.6 3.6 0 0 1-3.6 3.6H4"/>',
+    flame: '<path d="M12 3.5s5 4.6 5 9.3a5 5 0 0 1-10 0c0-2 1-3.7 2-4.6 0 2 1 3 2.1 3 0-3.2 1-5.2.9-7.7z"/>',
+    lock: '<rect x="4.5" y="10.5" width="15" height="10.5" rx="3"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/>',
     xmark: '<path d="M6 6l12 12M18 6L6 18"/>',
-    user: '<circle cx="12" cy="8" r="3.6"/><path d="M4.8 20c.7-3.7 3.6-5.8 7.2-5.8s6.5 2.1 7.2 5.8"/>',
+    user: '<circle cx="12" cy="8.2" r="3.4"/><path d="M5 20c.7-3.5 3.6-5.6 7-5.6s6.3 2.1 7 5.6"/>',
+    // 下面这些暂时没接进界面，给趋势 / 目标 / 编辑 / 筛选 / 排序 / 完成 / 云端预留
+    trend: '<path d="M3 17l5.5-5.5 3.5 3.5L21 6"/><path d="M15 6h6v6"/>',
+    target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.4"/>',
+    edit: '<path d="M4.5 19.5l.6-4.4L15.6 4.6a2.3 2.3 0 0 1 3.3 0l.5.5a2.3 2.3 0 0 1 0 3.3L8.9 18.9z"/>',
+    filter: '<path d="M4 6h16l-6.2 6.6v5.6L10.2 20v-7.4z"/>',
+    // 排序用上下双箭头：箭头半宽只有 2.5，两列间距 8，2.3 的线宽下也不会粘到一起
+    sort: '<path d="M8 19.5V4.5M5.5 7L8 4.5 10.5 7"/><path d="M16 4.5v15M13.5 17L16 19.5 18.5 17"/>',
+    check: '<circle cx="12" cy="12" r="8.5"/><path d="M8 12.2l2.8 2.8 5.2-5.4"/>',
+    cloud: '<path d="M12 3.5l8 4.2v8.6l-8 4.2-8-4.2V7.7z"/><path d="M12 12v8.5M4 7.7l8 4.3 8-4.3"/>',
+    // 部位图标：抽象符号（人体部位做不了具象），配合各自的分类色使用
+    chest: '<rect x="3.6" y="7.2" width="7" height="9.5" rx="2.6"/><rect x="13.4" y="7.2" width="7" height="9.5" rx="2.6"/>',
+    back: '<path d="M5 5.5h14l-2.6 13.5H7.6z"/><path d="M12 5.5v13.5"/>',
+    legs: '<path d="M8.5 4v8.5l-1.3 7M15.5 4v8.5l1.3 7"/>',
+    shoulder: '<circle cx="12" cy="7.5" r="2.9"/><path d="M4.5 17a7.5 7.5 0 0 1 15 0"/>',
+    arms: '<path d="M7 4v6a5 5 0 0 0 5 5h3a2.5 2.5 0 0 0 0-5h-2"/>',
+    core: '<rect x="7.5" y="4.5" width="9" height="15" rx="3"/><path d="M12 4.5v15M7.5 9.5h9M7.5 14.5h9"/>',
+    cardio: '<path d="M2.5 12h3.6l1.8-4.5 3.2 9 1.9-4.5h6"/>',
   };
-  function icon(name, size) {
+  // 分类 → 图标名，动作库分类标题和日历图例都用这套
+  const CAT_ICON = { 胸: "chest", 背: "back", 腿: "legs", 肩: "shoulder", 臂: "arms", 核心: "core", 有氧: "cardio" };
+  function icon(name, size, color) {
     size = size || 24;
     return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size +
-      '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+      '" fill="none" stroke="' + (color || "currentColor") + '" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">' +
       (ICONS[name] || "") + "</svg>";
   }
   function injectIcons(root) {
@@ -484,7 +503,9 @@
     }
     let html = "";
     keys.forEach((k) => {
-      html += '<div class="section-title">' + k + "</div><div class=\"list\">" +
+      html += '<div class="section-title cat-title">' +
+        (CAT_ICON[k] ? icon(CAT_ICON[k], 17, CAT_COLORS[k]) : "") +
+        "<span>" + k + "</span></div><div class=\"list\">" +
         groups[k].map((e) => {
           const b = bm.e1ById[e.id] || bm.e1[e.name];
           return '<button class="row" data-act="open-exercise-detail" data-id="' + e.id + '" data-ex-id="' + e.id + '">' +
@@ -495,7 +516,7 @@
             (e.type === "time"
               ? '<span class="val">' + (timeMap[e.id] ? fmtMins(Math.round(timeMap[e.id] / 60)) : typeTag(e.type)) + "</span>"
               : "") +
-            '<span class="ex-drag" aria-label="拖动排序">' + icon("list", 16).replace('stroke-width="1.8"', 'stroke-width="2.4"') + "</span>" +
+            '<span class="ex-drag" aria-label="拖动排序">' + icon("list", 16) + "</span>" +
             "</button>";
         }).join("") + "</div>";
     });
@@ -867,7 +888,7 @@
     });
     const legend = seen.length
       ? '<div class="cal-legend">' + seen.map((c) =>
-        '<span><i style="background:' + (CAT_COLORS[c] || CAT_COLOR_FALLBACK) + '"></i>' + esc(c) + "</span>").join("") + "</div>"
+        '<span>' + (CAT_ICON[c] ? icon(CAT_ICON[c], 13, CAT_COLORS[c] || CAT_COLOR_FALLBACK) : "") + esc(c) + "</span>").join("") + "</div>"
       : "";
     return '<div class="cal-box">' +
       '<div class="cal-head"><button class="cal-nav" data-act="cal-prev" aria-label="上个月">‹</button>' +
