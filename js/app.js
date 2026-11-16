@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v91";
+  const APP_VERSION = "v92";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -45,9 +45,33 @@
     arms: '<path d="M7 4v6a5 5 0 0 0 5 5h3a2.5 2.5 0 0 0 0-5h-2"/>',
     core: '<rect x="7.5" y="4.5" width="9" height="15" rx="3"/><path d="M12 4.5v15M7.5 9.5h9M7.5 14.5h9"/>',
     cardio: '<path d="M2.5 12h3.6l1.8-4.5 3.2 9 1.9-4.5h6"/>',
+    // 器械图标：223 个动作归到这 8 类，列表里配部位色一起用
+    gear_barbell: '<path d="M2.5 9.5v5M5.5 7v10M18.5 7v10M21.5 9.5v5M5.5 12h13"/>',
+    // 哑铃整体倾斜 40 度：不倾斜的话和杠铃在 20px 下几乎分不出（都是「横线加两竖」）
+    gear_dumbbell: '<g transform="rotate(-40 12 12)"><path d="M8 6.5v11M16 6.5v11M4.5 9.5v5M19.5 9.5v5M8 12h8"/></g>',
+    gear_machine: '<rect x="4" y="4.5" width="16" height="15.5" rx="2.5"/><path d="M8 16.5v-4h4.5v4"/><path d="M16 8v4.5"/>',
+    gear_cable: '<circle cx="12" cy="5.5" r="2.3"/><path d="M12 7.8v6.7"/><path d="M9 14.5h6"/><path d="M4 20h16"/>',
+    gear_body: '<circle cx="12" cy="5.2" r="2.1"/><path d="M12 7.3v6.4"/><path d="M7 10.5l5 1.5 5-1.5"/><path d="M12 13.7l-2.8 6M12 13.7l2.8 6"/>',
+    gear_kettlebell: '<path d="M8.6 9.6a4.4 4.4 0 0 1 6.8 0"/><circle cx="12" cy="15" r="5"/>',
+    gear_band: '<path d="M3.5 6.5c4.5 0 4.5 11 8.5 11s4-11 8.5-11"/><path d="M3.5 6.5v3.5M20.5 6.5v3.5"/>',
+    gear_treadmill: '<path d="M2.5 18.5h19"/><path d="M5 18.5l2.5-4h11.5"/><path d="M19 14.5V8.5"/><path d="M16 8.5h5"/>',
   };
   // 分类 → 图标名，动作库分类标题和日历图例都用这套
   const CAT_ICON = { 胸: "chest", 背: "back", 腿: "legs", 肩: "shoulder", 臂: "arms", 核心: "core", 有氧: "cardio" };
+  // 动作 → 器械类型。223 个动作名都带器械词，按关键词判断即可；
+  // 顺序有讲究：具体器械在前，宽泛的「器械/机」在后，最后按类型兜底。
+  function gearOf(ex) {
+    const n = (ex.name || "") + " " + (ex.id || "");
+    if (/壶铃/.test(n)) return "gear_kettlebell";
+    if (/弹力带|阻力带|橡皮带|弹力绳/.test(n)) return "gear_band";
+    if (ex.type === "time" || /跑步机|椭圆机|台阶机|划船机|单车|动感单车|跳绳|爬楼/.test(n)) return "gear_treadmill";
+    if (/绳索|龙门|拉力器|拉索|下拉|下压|飞鸟（[上下]位）/.test(n)) return "gear_cable";
+    if (/史密斯|器械|推胸机|夹胸机|弯举机|腿举|哈克|蝴蝶|悍马|分动|坐姿.*机|机（/.test(n)) return "gear_machine";
+    if (/杠铃|潘德雷|T 杠|硬拉/.test(n)) return "gear_barbell";
+    if (/哑铃/.test(n)) return "gear_dumbbell";
+    if (/俯卧撑|引体|悬垂|双杠|自重|徒手|平板支撑|卷腹|仰卧起坐|箭步|臀桥/.test(n)) return "gear_body";
+    return "gear_machine";   // 兜底：没有器械线索的，多半是固定器械动作
+  }
   function icon(name, size, color) {
     size = size || 24;
     return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size +
@@ -509,7 +533,7 @@
         groups[k].map((e) => {
           const b = bm.e1ById[e.id] || bm.e1[e.name];
           return '<button class="row" data-act="open-exercise-detail" data-id="' + e.id + '" data-ex-id="' + e.id + '">' +
-            '<span class="grow">' + esc(e.name) +
+            '<span class="grow"><span class="gear-ico">' + icon(gearOf(e), 20) + "</span>" + esc(e.name) +
             (e.custom ? ' <span class="ex-cat">自定义</span>' : "") + "</span>" +
             // 最佳 e1RM 直接标在动作后面，不用再翻统计页
             (b ? '<span class="ex-best">' + U.fmt(b.val) + "<small>" + U.cur() + "</small></span>" : "") +

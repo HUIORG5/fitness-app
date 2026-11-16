@@ -256,6 +256,9 @@ svg{display:block;}
 /* 动作库分类标题带部位图标 */
 .section-title.cat-title{display:flex;align-items:center;gap:6px;}
 .cat-title svg{flex:none;display:block;}
+/* 列表行左侧的器械图标 */
+.gear-ico{display:inline-block;vertical-align:-5px;margin-right:8px;color:var(--text);opacity:.62;}
+.gear-ico svg{display:block;}
 .cal-sum{font-size:12.5px;color:var(--text-2);text-align:center;margin-top:10px;}
 
 /* 月度小结：接在日历下面，翻月时跟着换 */
