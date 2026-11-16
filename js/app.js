@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v93";
+  const APP_VERSION = "v94";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -55,6 +55,28 @@
     gear_kettlebell: '<path d="M8.6 9.6a4.4 4.4 0 0 1 6.8 0"/><circle cx="12" cy="15" r="5"/>',
     gear_band: '<path d="M3.5 6.5c4.5 0 4.5 11 8.5 11s4-11 8.5-11"/><path d="M3.5 6.5v3.5M20.5 6.5v3.5"/>',
     gear_treadmill: '<path d="M2.5 18.5h19"/><path d="M5 18.5l2.5-4h11.5"/><path d="M19 14.5V8.5"/><path d="M16 8.5h5"/>',
+    // 动作图标：只在大尺寸用（详情页 56px / 选择列表 32px），列表行太小会糊
+    act_bench_flat_bb: '<path d="M3 18h18"/><path d="M5 7h14"/><path d="M5 5v4M19 5v4"/>',
+    act_bench_incline_bb: '<path d="M3 19.5L21 12.5"/><path d="M5 9L19 4"/><path d="M5 7v4M19 2v4"/>',
+    act_bench_decline_bb: '<path d="M3 12.5L21 19.5"/><path d="M5 4L19 9"/><path d="M5 2v4M19 7v4"/>',
+    act_bench_flat_db: '<path d="M3 18h18"/><g transform="rotate(-38 6 7)"><path d="M5 4.5v5M8 4.5v5M3.5 6v2M9.5 6v2M5 7h3"/></g><g transform="rotate(-38 18 7)"><path d="M17 4.5v5M20 4.5v5M15.5 6v2M21.5 6v2M17 7h3"/></g>',
+    act_bench_incline_db: '<path d="M3 19.5L21 12.5"/><g transform="rotate(-38 6 5.5)"><path d="M5 3v5M8 3v5M3.5 4.5v2M9.5 4.5v2M5 5.5h3"/></g><g transform="rotate(-38 18 9)"><path d="M17 6.5v5M20 6.5v5M15.5 8v2M21.5 8v2M17 9h3"/></g>',
+    act_machine_press: '<path d="M3.5 20.5V4.5h17"/><path d="M7.5 20.5v-4h5v4"/><path d="M15 14h6"/>',
+    act_pec_deck: '<path d="M12 3v17"/><path d="M4.5 8.5L9 15M19.5 8.5L15 15"/>',
+    act_pushup: '<path d="M3 19h18"/><circle cx="5.5" cy="12" r="1.8"/><path d="M7.5 13L18 16"/><path d="M8 13.8v4.5"/>',
+    act_dip: '<path d="M4 8.5h5M15 8.5h5"/><path d="M4.5 8.5v11M19.5 8.5v11"/><circle cx="12" cy="5" r="1.8"/><path d="M12 7v5"/>',
+    act_row_bb: '<circle cx="17.5" cy="5" r="1.9"/><path d="M16.5 6.5L8 11.5"/><path d="M8 11.5v7"/><path d="M4 15h8"/>',
+    act_row_db: '<circle cx="17.5" cy="5" r="1.9"/><path d="M16.5 6.5L8 11.5"/><path d="M8 11.5v7"/><g transform="rotate(-38 5.5 15)"><path d="M4.5 12.5v5M7.5 12.5v5M3 14v2M9 14v2M4.5 15h3"/></g>',
+    act_pulldown: '<circle cx="12" cy="3" r="1.5"/><path d="M12 4.5v4.5"/><path d="M6.5 9h11"/><path d="M9 9v4.5M15 9v4.5"/><path d="M7 18h10"/>',
+    act_pullup: '<path d="M4 5h16"/><path d="M4.5 5v4M19.5 5v4"/><circle cx="12" cy="10" r="1.8"/><path d="M12 12v6"/><path d="M9.5 5.5L12 9.5M14.5 5.5L12 9.5"/>',
+    act_squat_bb: '<circle cx="13" cy="4.6" r="1.9"/><path d="M13 6.5v5"/><path d="M7.5 9.5h11"/><path d="M13 11.5l-3 4.5V20M13 11.5l3 4.5V20"/>',
+    act_deadlift: '<circle cx="13" cy="5.5" r="1.8"/><path d="M13 7.3L9.5 12"/><path d="M9.5 12v5"/><path d="M4 18.5h12"/>',
+    act_press_bb: '<circle cx="12" cy="8.6" r="2"/><path d="M12 10.6v6"/><path d="M12 16.6l-2.6 3.4M12 16.6l2.6 3.4"/><path d="M8 5.4h8"/><path d="M9.5 12v-5.6M14.5 12v-5.6"/>',
+    act_curl_bb: '<circle cx="12" cy="5" r="2"/><path d="M12 7v7"/><path d="M12 14l-2.5 6M12 14l2.5 6"/><path d="M6.5 11h11"/><path d="M6.5 11L9.5 7.5M17.5 11L14.5 7.5"/>',
+    act_raise_lateral: '<circle cx="12" cy="5" r="2"/><path d="M12 7v7"/><path d="M12 14l-2.5 6M12 14l2.5 6"/><path d="M5 10.5h4.5M14.5 10.5h4.5"/><circle cx="4.6" cy="10.5" r="1.5"/><circle cx="19.4" cy="10.5" r="1.5"/>',
+    act_plank: '<path d="M3 19.5h18"/><circle cx="6" cy="13.5" r="1.8"/><path d="M8 14.5L18 15.5"/><path d="M8 15v4M16 15v4"/>',
+    act_treadmill: '<path d="M2.5 18.5h19"/><path d="M5 18.5l2.5-4h11.5"/><path d="M19 14.5V8.5"/><path d="M16 8.5h5"/>',
+    act_bike: '<circle cx="6" cy="16.5" r="3.2"/><circle cx="18" cy="16.5" r="3.2"/><path d="M6 16.5l4.5-6h5l2.5 6"/><path d="M9.5 8h4.5"/>',
   };
   // 分类 → 图标名，动作库分类标题和日历图例都用这套
   const CAT_ICON = { 胸: "chest", 背: "back", 腿: "legs", 肩: "shoulder", 臂: "arms", 核心: "core", 有氧: "cardio" };
@@ -71,6 +93,32 @@
     if (/哑铃/.test(n)) return "gear_dumbbell";
     if (/俯卧撑|引体|悬垂|双杠|自重|徒手|平板支撑|卷腹|仰卧起坐|箭步|臀桥/.test(n)) return "gear_body";
     return "gear_machine";   // 兜底：没有器械线索的，多半是固定器械动作
+  }
+  // 动作 → 动作图标。只覆盖常见动作模式，其余一律退回器械图标（列表小尺寸下也够看）
+  function actionIconOf(ex) {
+    const n = ex.name || "";
+    const has = (re) => re.test(n);
+    if (ex.type === "time") return has(/单车|骑行/) ? "act_bike" : "act_treadmill";
+    if (has(/卧推|推胸/)) {
+      if (has(/史密斯|器械|机|悍马/)) return "act_machine_press";
+      if (has(/哑铃/)) return has(/上斜/) ? "act_bench_incline_db" : "act_bench_flat_db";
+      if (has(/上斜/)) return "act_bench_incline_bb";
+      if (has(/下斜/)) return "act_bench_decline_bb";
+      return "act_bench_flat_bb";
+    }
+    if (has(/飞鸟|夹胸/)) return "act_pec_deck";
+    if (has(/俯卧撑/)) return "act_pushup";
+    if (has(/双杠/)) return "act_dip";
+    if (has(/划船/)) return has(/哑铃/) ? "act_row_db" : "act_row_bb";
+    if (has(/引体/)) return "act_pullup";
+    if (has(/下拉/)) return "act_pulldown";
+    if (has(/深蹲|箭步|弓步/)) return "act_squat_bb";
+    if (has(/硬拉/)) return "act_deadlift";
+    if (has(/推举|肩推|实力举/)) return "act_press_bb";
+    if (has(/平举|侧平|前平/)) return "act_raise_lateral";
+    if (has(/弯举|臂屈伸/)) return "act_curl_bb";
+    if (has(/平板支撑|卷腹|仰卧起坐|举腿/)) return "act_plank";
+    return gearOf(ex);
   }
   function icon(name, size, color) {
     size = size || 24;
@@ -1475,12 +1523,12 @@
           const on = !!picker.sel[e.id];
           return '<button class="row' + (on ? " picked-on" : "") + '" data-act="pick-exercise" data-id="' + e.id + '">' +
             '<span class="pcheck">' + (on ? "✓" : "") + "</span>" +
-            '<span class="grow"><span class="gear-ico">' + icon(gearOf(e), 18) + "</span>" + esc(e.name) + "</span>" +
+            '<span class="grow"><span class="gear-ico">' + icon(actionIconOf(e), 30) + "</span>" + esc(e.name) + "</span>" +
             (e.type === "time" ? '<span class="val">' + typeTag(e.type) + "</span>" : "") + "</button>";
         }
         const n = inPlan ? planDraft.items.filter((it) => it.exerciseId === e.id).length : 0;
         return '<button class="row" data-act="pick-exercise" data-id="' + e.id + '">' +
-          '<span class="grow"><span class="gear-ico">' + icon(gearOf(e), 18) + "</span>" + esc(e.name) + "</span>" +
+          '<span class="grow"><span class="gear-ico">' + icon(actionIconOf(e), 30) + "</span>" + esc(e.name) + "</span>" +
           '<span class="val">' + (n ? "已加入 " + n + " 次" : typeTag(e.type)) + "</span></button>";
       }).join("") + "</div>"
       : '<div class="empty" style="padding:28px"><b>没有找到动作</b><p>点上面的「新建自定义动作」当场添加</p></div>';
@@ -2002,7 +2050,7 @@
 
     openSub("动作详情",
       '<div class="card card-pad" style="margin-top:12px;text-align:center">' +
-      '<div class="ex-hero">' + icon(gearOf(ex), 56, CAT_COLORS[ex.cat] || "currentColor") + "</div>" +
+      '<div class="ex-hero">' + icon(actionIconOf(ex), 56, CAT_COLORS[ex.cat] || "currentColor") + "</div>" +
       '<div style="font-size:21px;font-weight:800">' + esc(ex.name) + "</div>" +
       '<div style="color:var(--text-2);font-size:13.5px;margin-top:3px">' + ex.cat + " · " + (ex.type === "time" ? "计时动作" : "次数动作") +
       (ex.custom ? " · 自定义" : "") + (isHidden ? " · 已从动作库移除" : "") + "</div></div>" + statsHtml +
