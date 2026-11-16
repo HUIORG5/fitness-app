@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v88";
+  const APP_VERSION = "v90";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -1027,7 +1027,12 @@
   function updateWorkoutMeta() {
     const w = Store.data.activeWorkout;
     if (!w) return;
-    $("#workout-volume").textContent = "容量 " + fmtVol(workoutVol(w));
+    // 纯有氧没有容量，顶上改显示累计时长，不然一直挂个「容量 0 kg」
+    const vol = workoutVol(w);
+    const sec = workoutSec(w);
+    $("#workout-volume").textContent = vol > 0
+      ? "容量 " + fmtVol(vol)
+      : (sec > 0 ? "时长 " + fmtMins(Math.round(sec / 60)) : "容量 " + fmtVol(0));
     const at = lastSetAt(w);
     const box = $("#workout-last"), t = $("#last-set-time");
     if (box && t) {
@@ -1080,7 +1085,8 @@
     const prevBest = (prevBestOf(old, e) || {}).val || 0;
     const isNewPR = curBest > 0 && curBest > prevBest + 0.01;
 
-    const repIdx = e.type === "time" ? [] : repIdxOf(e.sets);
+    const isTime = e.type === "time";
+    const repIdx = isTime ? [] : repIdxOf(e.sets);
     const rows = e.sets.map((s, si) => {
       const isPR = isNewPR && si === curBestIdx;
       return '<tr><td class="set-idx">' + (si + 1) + "</td><td>" +
@@ -1088,13 +1094,18 @@
         setText(s, e.type, unitOf(e)) +
         (repIdx[si] ? '<span class="rep-idx">×' + repIdx[si] + "</span>" : "") +
         (isPR ? '<span class="pr-tag">PR</span>' : "") + "</button></td>" +
-        '<td class="set-e1rm">' + (e.type === "time" || setE1RM(s) <= 0 ? "—" : U.fmt(setE1RM(s))) + "</td></tr>";
+        (isTime ? "" : '<td class="set-e1rm">' + (setE1RM(s) <= 0 ? "—" : U.fmt(setE1RM(s))) + "</td>") + "</tr>";
     }).join("");
+    // 计时动作没有容量：右上角显示累计时长，e1RM 那列整列不出现（跟历史详情保持一致）
+    const badge = isTime
+      ? fmtMins(Math.round(e.sets.reduce((a, s) => a + (s.sec || 0), 0) / 60))
+      : fmtVol(exVol(e));
     return '<div class="ex-card">' +
       '<div class="ex-head"><span class="grow"><b>' + esc(e.name) + "</b><small>" + catLine(e.cat, e.type) + "</small></span>" +
-      '<span class="ex-cat">' + fmtVol(exVol(e)) + "</span>" +
+      '<span class="ex-cat">' + badge + "</span>" +
       '<button class="nav-btn" style="width:30px;height:30px;background:none;color:var(--text-3)" data-act="del-exercise" data-i="' + i + '">' + icon("trash", 18) + "</button></div>" +
-      '<table class="set-table"><tr><th>组</th><th>' + (e.type === "time" ? "时长" : "重量 × 次数") + "</th><th style=\"text-align:right\">e1RM</th></tr>" +
+      '<table class="set-table"><tr><th>组</th><th>' + (isTime ? "时长" : "重量 × 次数") + "</th>" +
+      (isTime ? "" : '<th style="text-align:right">e1RM</th>') + "</tr>" +
       rows + "</table>" +
       '<button class="add-set-btn" data-act="add-set" data-i="' + i + '">' + icon("plus", 16) + " 添加组</button></div>";
   }
