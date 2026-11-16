@@ -98,6 +98,19 @@
     });
   }
 
+  // 这次训练里所有组的时长之和（秒）——纯有氧的日子用它代替容量
+  function workoutSec(w) {
+    let t = 0;
+    w.exercises.forEach((e) => e.sets.forEach((s) => { t += s.sec || 0; }));
+    return t;
+  }
+  // 分钟数的人话格式：45 → 45 分，80 → 1 时 20 分
+  function fmtMins(min) {
+    if (min < 60) return min + " 分";
+    const h = Math.floor(min / 60), m = min % 60;
+    return m ? h + " 时 " + m + " 分" : h + " 时";
+  }
+
   window.Format = {
     esc: esc, pad: pad, fmtClock: fmtClock, fmtDur: fmtDur,
     fmtDate: fmtDate, WD: WD, fmtWD: fmtWD, dayKey: dayKey,
@@ -105,6 +118,6 @@
     setVol: setVol, setE1RM: setE1RM, exVol: exVol,
     workoutVol: workoutVol, setCount: setCount,
     fmtSec: fmtSec, typeTag: typeTag, catLine: catLine,
-    unitOf: unitOf, setText: setText, repIdxOf: repIdxOf,
+    unitOf: unitOf, setText: setText, repIdxOf: repIdxOf, fmtMins: fmtMins, workoutSec: workoutSec,
   };
 })();
