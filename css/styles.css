@@ -712,3 +712,9 @@ svg{display:block;}
   font-size:12.5px;font-weight:700;display:grid;place-items:center;}
 .guide-step span{flex:1;font-size:15px;font-weight:600;line-height:1.5;padding-top:1px;}
 .guide-img{display:block;width:100%;height:auto;border-radius:12px;border:.5px solid var(--sep);background:#fff;}
+
+/* 训练详情页：可点击改日期的那一行 */
+.wd-date{display:inline-flex;align-items:center;gap:8px;background:none;border:none;padding:2px 0;
+  font:inherit;font-size:14px;color:var(--text-2);}
+.wd-date:active{opacity:.5;}
+.wd-date-edit{font-size:11.5px;color:var(--blue);background:var(--blue-soft);padding:2px 7px;border-radius:6px;}

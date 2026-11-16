@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v95";
+  const APP_VERSION = "v98";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -1197,6 +1197,7 @@
     return '<div class="ex-card">' +
       '<div class="ex-head"><span class="ex-head-gear">' + icon(gearOf(e), 22, CAT_COLORS[e.cat] || "currentColor") + '</span><span class="grow"><b>' + esc(e.name) + "</b><small>" + catLine(e.cat, e.type) + "</small></span>" +
       '<span class="ex-cat">' + badge + "</span>" +
+      '<button class="nav-btn" style="width:30px;height:30px;background:none;color:var(--text-3)" data-act="swap-exercise" data-i="' + i + '" aria-label="更换动作">' + icon("repeat", 17) + "</button>" +
       '<button class="nav-btn" style="width:30px;height:30px;background:none;color:var(--text-3)" data-act="del-exercise" data-i="' + i + '">' + icon("trash", 18) + "</button></div>" +
       '<table class="set-table"><tr><th>组</th><th>' + (isTime ? "时长" : "重量 × 次数") + "</th>" +
       (isTime ? "" : '<th style="text-align:right">e1RM</th>') + "</tr>" +
@@ -1213,6 +1214,33 @@
     Store.save();
     openWorkoutView();
   }
+  /* ---------- 编辑已保存的训练 ---------- */
+  // 做法是把它拷进 activeWorkout（打 editingId 标记），沿用整套训练界面改动作/组/名称，
+  // 保存时替换原记录而不是新增——不用再写一套编辑界面。
+  function startEditWorkout(id) {
+    const w = Store.data.workouts.find((x) => x.id === id);
+    if (!w) return;
+    if (Store.data.activeWorkout) { toast("先结束进行中的训练"); return; }
+    const copy = JSON.parse(JSON.stringify(w));
+    copy.editingId = w.id;
+    Store.data.activeWorkout = copy;
+    Store.save();
+    closeSub();
+    openWorkoutView();
+    toast("编辑模式 · 保存后覆盖原记录");
+  }
+  function openWorkoutDateSheet(id) {
+    const w = Store.data.workouts.find((x) => x.id === id);
+    if (!w) return;
+    const d = new Date(w.startedAt);
+    $("#sheet-content").innerHTML =
+      '<div class="sheet-title">修改训练日期</div>' +
+      '<div class="sheet-sub">只改日期，时长、动作、组数都不动</div>' +
+      '<div class="bf-date"><input id="wf-date" type="date" max="' + ymd(new Date()) + '" value="' + ymd(d) + '"></div>' +
+      '<button class="btn big" data-act="save-workout-date" data-id="' + id + '">保存</button>';
+    showSheet();
+  }
+
   /* ---------- 补录：某天忘了记，事后补一条 ---------- */
   // 本地时区的 YYYY-MM-DD（不能用 toISOString，那是 UTC，东八区会差一天）
   function ymd(d) {
@@ -1260,16 +1288,22 @@
   async function cancelWorkout() {
     const w = Store.data.activeWorkout;
     if (!w) return;
-    if (setCount(w) > 0) {
-      const ok = await confirmAction("放弃本次训练？", "已记录的 " + setCount(w) + " 组数据将被清除，无法恢复。", "放弃", true);
+    if (setCount(w) > 0 || w.editingId) {
+      const ok = w.editingId
+        ? await confirmAction("放弃这次修改？", "改动不会保存，原记录保持不变。", "放弃", true)
+        : await confirmAction("放弃本次训练？", "已记录的 " + setCount(w) + " 组数据将被清除，无法恢复。", "放弃", true);
       if (!ok) return;
     }
     Store.data.activeWorkout = null;
     Store.save();
     closeWorkoutView();
-    toast("已放弃本次训练");
+    toast(w.editingId ? "已放弃修改" : "已放弃本次训练");
   }
   function backWorkout() {
+    const w = Store.data.activeWorkout;
+    // 编辑模式没有「稍后继续」这一说：原记录一直在，要么存要么退，先问清楚，
+    // 否则副本会挂在 activeWorkout 里，今天页出现一个假的「继续训练」
+    if (w && w.editingId) { cancelWorkout(); return; }
     // 返回 = 暂时保存进度并退出训练界面，之后可从今天页「继续训练」恢复
     Store.save();
     closeWorkoutView();
@@ -1458,6 +1492,30 @@
   }
   function saveWorkoutFinal() {
     const w = Store.data.activeWorkout;
+    // 编辑已有记录：替换而不是新增，id 保持不变（云端 upsert 才会覆盖同一条）。
+    // 时长沿用原来那段——只改组数或动作不该让这条记录凭空变长。
+    if (w.editingId) {
+      const editId = w.editingId;
+      const orig = Store.data.workouts.find((x) => x.id === editId);
+      const dur = orig ? Math.max(0, orig.endedAt - orig.startedAt) : 3600000;
+      w.endedAt = w.startedAt + dur;
+      delete w.editingId;
+      if (!String(w.name || "").trim()) w.name = fmtDate(new Date(w.startedAt)) + "训练";
+      const idx = Store.data.workouts.findIndex((x) => x.id === editId);
+      if (idx >= 0) Store.data.workouts[idx] = w;
+      else Store.data.workouts.push(w);
+      Store.data.activeWorkout = null;
+      Store.save();
+      closeSheet();
+      closeWorkoutView();
+      toast("已保存修改");
+      if (Cloud.isLoggedIn()) {
+        Cloud.pushWorkout(w).then((r) => {
+          if (r && r.error) toast("云端同步失败：" + r.error);
+        });
+      }
+      return;
+    }
     // 补录的结束时间不能用「此刻」，否则这条记录会横跨好几天。
     // 按动作累计时长估（至少 30 分钟），「时长」那一栏才不会难看。
     if (w.backfill) {
@@ -1491,12 +1549,17 @@
   }
 
   /* ---------- 选择动作弹层 ---------- */
-  const picker = { q: "", cat: "胸", from: null, multi: false, sel: {} };  // from: null=训练中 | "plan"=计划编辑
-  function openExercisePicker() {
-    picker.q = ""; picker.cat = "胸";
+  const picker = { q: "", cat: "胸", from: null, multi: false, sel: {}, swapIdx: null };  // from: null=训练中 | "plan"=计划编辑
+  function openExercisePicker(swapIdx) {
+    // 直接绑在按钮上时第一个参数是 Event，这里只认数字
+    if (typeof swapIdx !== "number") swapIdx = null;
+    const curW = Store.data.activeWorkout;
+    const curEx = (swapIdx != null && curW && curW.exercises[swapIdx]) ? curW.exercises[swapIdx] : null;
+    picker.q = ""; picker.cat = curEx ? curEx.cat : "胸";
     picker.from = null;   // 必须复位：否则计划编辑残留的标记会让正常训练也走进计划分支
+    picker.swapIdx = swapIdx;
     $("#sheet-content").innerHTML =
-      '<div class="sheet-title">添加动作</div>' +
+      '<div class="sheet-title">' + (curEx ? "更换「" + esc(curEx.name) + "」" : "添加动作") + "</div>" +
       '<div class="search-bar" style="margin:10px 0"><span class="search-ico">' + icon("search", 18) + "</span>" +
       '<input id="picker-search" type="search" placeholder="搜索动作" autocomplete="off"></div>' +
       '<div class="chips" id="picker-chips"></div>' +
@@ -1560,6 +1623,22 @@
     }
     const w = Store.data.activeWorkout;
     if (!ex || !w) return;
+    // 换动作：已记的组原样保留，只替换动作本身（选错动作时用这个，别删了重加）
+    if (picker.swapIdx != null && w.exercises[picker.swapIdx]) {
+      const e = w.exercises[picker.swapIdx];
+      const typeChanged = e.type !== ex.type;
+      e.exerciseId = ex.id;
+      e.name = ex.name;
+      e.cat = ex.cat;
+      e.type = ex.type;
+      if (typeChanged) e.sets = [];   // 次数动作和计时动作的组格式不兼容，只能清空
+      picker.swapIdx = null;
+      Store.save();
+      closeSheet();
+      renderWorkout();
+      toast(typeChanged ? "已换成「" + ex.name + "」，原来的组数已清空" : "已换成「" + ex.name + "」");
+      return;
+    }
     w.exercises.push({
       id: Store.uid(), exerciseId: ex.id, name: ex.name,
       cat: ex.cat, type: ex.type, sets: [],
@@ -1596,7 +1675,9 @@
     openSub("训练详情",
       '<div class="card card-pad" style="margin-top:12px">' +
       '<div style="font-size:22px;font-weight:800">' + esc(w.name) + "</div>" +
-      '<div style="color:var(--text-2);font-size:14px;margin-top:2px">' + fmtDate(d) + " " + fmtWD(d) + " · " + fmtDur(w.endedAt - w.startedAt) + "</div>" +
+      '<button class="wd-date" data-act="edit-workout-date" data-id="' + w.id + '">' +
+      fmtDate(d) + " " + fmtWD(d) + " · " + fmtDur(w.endedAt - w.startedAt) +
+      '<span class="wd-date-edit">改日期</span></button>' +
       '<div class="sum-grid" style="margin:14px 0 0">' +
       '<div class="sum-item"><b>' + st.val + "</b><small>" + st.label + "</small></div>" +
       '<div class="sum-item"><b>' + w.exercises.length + "</b><small>动作数</small></div>" +
@@ -1607,7 +1688,8 @@
       '<button class="btn" data-act="share-workout" data-id="' + w.id + '">分享长图</button>' +
       '<button class="btn ghost" data-act="repeat-workout" data-id="' + w.id + '">再次训练</button></div>' +
       '<div style="display:flex;gap:10px;margin-top:10px">' +
-      '<button class="btn danger" style="flex:none;width:110px" data-act="delete-workout" data-id="' + w.id + '">删除</button></div>');
+      '<button class="btn" data-act="edit-workout" data-id="' + w.id + '">编辑</button>' +
+      '<button class="btn danger" data-act="delete-workout" data-id="' + w.id + '">删除</button></div>');
   }
   /* ================= 训练计划 ================= */
   /* 计划草稿：新建/编辑时用。items 里每项 = 一个动作 + 目标组数/次数/重量 */
@@ -2900,6 +2982,7 @@
     "save-set": saveSet,
     "delete-set": deleteSet,
     "del-exercise": (el) => delExercise(+el.dataset.i),
+    "swap-exercise": (el) => openExercisePicker(+el.dataset.i),
     "inc-kg": () => bump("#in-kg", U.step()),
     "dec-kg": () => bump("#in-kg", -U.step()),
     "inc-reps": () => bump("#in-reps", 1),
@@ -2947,6 +3030,29 @@
     "pick-exercise": (el) => pickExercise(el.dataset.id),
     "open-all-history": openHistoryView,
     "open-backfill": openBackfillSheet,
+    "edit-workout": (el) => startEditWorkout(el.dataset.id),
+    "edit-workout-date": (el) => openWorkoutDateSheet(el.dataset.id),
+    "save-workout-date": (el) => {
+      const id = el.dataset.id;
+      const inp = $("#wf-date");
+      const v = inp && inp.value;
+      if (!v) { toast("先选日期"); return; }
+      if (v > ymd(new Date())) { toast("不能改成未来的日期"); return; }
+      const w = Store.data.workouts.find((x) => x.id === id);
+      if (!w) return;
+      const old = new Date(w.startedAt);
+      const p = v.split("-").map(Number);
+      const dur = w.endedAt - w.startedAt;
+      w.startedAt = new Date(p[0], p[1] - 1, p[2], old.getHours(), old.getMinutes()).getTime();
+      w.endedAt = w.startedAt + dur;
+      Store.save();
+      closeSheet();
+      openWorkoutDetail(id);
+      refreshHistoryIfActive();
+      renderAll();
+      toast("日期已修改");
+      if (Cloud.isLoggedIn()) Cloud.pushWorkout(w).catch(() => {});
+    },
     "bf-pick": (el) => { const i = $("#bf-date"); if (i) i.value = el.dataset.v; },
     "bf-start": startBackfill,
     "cal-prev": () => shiftCal(-1),
