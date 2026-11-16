@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v86";
+  const APP_VERSION = "v88";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -431,11 +431,14 @@
     }
     html += '<div id="stat-strip">' + statStripHtml() + "</div>";
     const recent = d.workouts.slice().sort((a, b) => b.startedAt - a.startedAt).slice(0, 5);
-    if (recent.length) {
-      html += '<div class="section-title with-more"><span>最近训练</span>' +
-        '<button class="st-more" data-act="open-all-history">全部历史 ›</button></div>' +
-        '<div class="list">' + recent.map(historyRow).join("") + "</div>";
-    }
+    // 「补录」放在这一行，即使一条记录都没有也能用（忘了记的时候正是从空列表起步）
+    html += '<div class="section-title with-more"><span>最近训练</span><span class="st-actions">' +
+      '<button class="st-more" data-act="open-backfill">补录</button>' +
+      (recent.length ? '<button class="st-more" data-act="open-all-history">全部历史 ›</button>' : "") +
+      "</span></div>";
+    html += recent.length
+      ? '<div class="list">' + recent.map(historyRow).join("") + "</div>"
+      : '<p class="set-note" style="padding:0 4px 12px">还没有训练记录。忘了记的，点上面的「补录」补一条。</p>';
     c.innerHTML = html;
     injectIcons(c);
   }
@@ -1105,6 +1108,49 @@
     Store.save();
     openWorkoutView();
   }
+  /* ---------- 补录：某天忘了记，事后补一条 ---------- */
+  // 本地时区的 YYYY-MM-DD（不能用 toISOString，那是 UTC，东八区会差一天）
+  function ymd(d) {
+    const p = (n) => (n < 10 ? "0" + n : "" + n);
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+  }
+  function openBackfillSheet() {
+    const today = new Date();
+    const yest = new Date(today.getTime() - 86400000);
+    const before = new Date(today.getTime() - 2 * 86400000);
+    $("#sheet-content").innerHTML =
+      '<div class="sheet-title">补录训练</div>' +
+      '<div class="sheet-sub">选择这次训练实际是哪一天，记完就归到那天</div>' +
+      '<div class="bf-date"><input id="bf-date" type="date" max="' + ymd(today) + '" value="' + ymd(today) + '"></div>' +
+      '<div class="bf-quick">' +
+      '<button class="btn ghost" data-act="bf-pick" data-v="' + ymd(today) + '">今天</button>' +
+      '<button class="btn ghost" data-act="bf-pick" data-v="' + ymd(yest) + '">昨天</button>' +
+      '<button class="btn ghost" data-act="bf-pick" data-v="' + ymd(before) + '">前天</button>' +
+      "</div>" +
+      '<button class="btn big" style="margin-top:14px" data-act="bf-start">开始补录</button>' +
+      '<p class="set-note" style="margin-top:12px">用的还是平时那套记录界面，加动作、记组都一样，只是日期算你选的那天</p>';
+    showSheet();
+  }
+  function startBackfill() {
+    const inp = $("#bf-date");
+    const v = inp ? inp.value : "";
+    if (!v) { toast("先选一个日期"); return; }
+    // 用日期字符串比较（yyyy-mm-dd 可以直接比大小），不要拿 19:00 去比时间：
+    // 下午补录「今天」时 19:00 还没到，那样会被误判成未来日期直接拒绝
+    if (v > ymd(new Date())) { toast("不能补录未来的日期"); return; }
+    const parts = v.split("-").map(Number);
+    let started = new Date(parts[0], parts[1] - 1, parts[2], 19, 0, 0).getTime();
+    if (started > Date.now()) started = Date.now() - 3600000;  // 今天还没到 19:00，就锚到一小时前
+    const d = new Date(started);
+    Store.data.activeWorkout = {
+      id: Store.uid(), startedAt: started,
+      name: fmtDate(d) + " 补录", exercises: [], backfill: true,
+    };
+    Store.save();
+    closeSheet();
+    openWorkoutView();
+    toast("补录模式 · 会算在 " + fmtDate(d));
+  }
   async function cancelWorkout() {
     const w = Store.data.activeWorkout;
     if (!w) return;
@@ -1306,7 +1352,15 @@
   }
   function saveWorkoutFinal() {
     const w = Store.data.activeWorkout;
-    w.endedAt = Date.now();
+    // 补录的结束时间不能用「此刻」，否则这条记录会横跨好几天。
+    // 按动作累计时长估（至少 30 分钟），「时长」那一栏才不会难看。
+    if (w.backfill) {
+      const est = Math.max(30, Math.round(workoutSec(w) / 60));
+      w.endedAt = w.startedAt + est * 60000;
+      delete w.backfill;
+    } else {
+      w.endedAt = Date.now();
+    }
     if (!w.name.trim()) w.name = "训练";
     Store.data.workouts.push(w);
     Store.data.activeWorkout = null;
@@ -2785,6 +2839,9 @@
     "picker-cat": (el) => { picker.cat = el.dataset.cat; renderPicker(); },
     "pick-exercise": (el) => pickExercise(el.dataset.id),
     "open-all-history": openHistoryView,
+    "open-backfill": openBackfillSheet,
+    "bf-pick": (el) => { const i = $("#bf-date"); if (i) i.value = el.dataset.v; },
+    "bf-start": startBackfill,
     "cal-prev": () => shiftCal(-1),
     "cal-next": () => shiftCal(1),
     "open-install-guide": () => {

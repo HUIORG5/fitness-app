@@ -116,6 +116,14 @@ svg{display:block;}
   text-transform:none;letter-spacing:0;background:none;border:none;padding:2px 0;
 }
 .section-title .st-more:active{opacity:.45;}
+/* 「最近训练」右边可能同时有「补录」和「全部历史」，并排留点间距 */
+.st-actions{display:flex;align-items:center;gap:14px;}
+/* 补录日期选择 */
+.bf-date{margin:14px 0 10px;}
+.bf-date input{width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:.5px solid var(--sep);
+  background:var(--input-bg);color:var(--text);font:inherit;font-size:16px;}
+.bf-quick{display:flex;gap:8px;}
+.bf-quick .btn{flex:1;padding:10px 0;font-size:14px;}
 /* overlay 标题栏第三格占位，让标题真正居中 */
 .overlay-nav .nav-spacer{width:52px;flex:none;}
 .list{background:var(--card);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;}
