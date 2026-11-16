@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v94";
+  const APP_VERSION = "v95";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -147,7 +147,8 @@
     const m = Math.round(ms / 60000);
     if (m < 1) return "不到 1 分钟";
     if (m < 60) return m + " 分钟";
-    return Math.floor(m / 60) + " 小时 " + pad(m % 60) + " 分";
+    const h = Math.floor(m / 60), mm = m % 60;
+    return mm ? h + " 小时 " + pad(mm) + " 分" : h + " 小时";
   }
   function fmtDate(d) { return d.getMonth() + 1 + "月" + d.getDate() + "日"; }
   const WD = ["日", "一", "二", "三", "四", "五", "六"];
@@ -1248,7 +1249,8 @@
     const d = new Date(started);
     Store.data.activeWorkout = {
       id: Store.uid(), startedAt: started,
-      name: fmtDate(d) + " 补录", exercises: [], backfill: true,
+      // 名字跟普通训练一致：补录只是录入方式，不是一种训练类型
+      name: fmtDate(d) + "训练", exercises: [], backfill: true,
     };
     Store.save();
     closeSheet();

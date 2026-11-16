@@ -318,9 +318,21 @@
       const d = JSON.parse(raw);
       // 合并默认值，防止老数据缺字段
       const base = JSON.parse(JSON.stringify(DEFAULT));
-      return Object.assign(base, d, {
+      const merged = Object.assign(base, d, {
         settings: Object.assign(base.settings, d.settings || {}),
       });
+      // 一次性迁移：早期补录的训练名里带了「补录」后缀，它只是录入方式不是类型，统一去掉
+      let fixed = false;
+      (merged.workouts || []).forEach((w) => {
+        if (/ 补录$/.test(w.name || "")) {
+          w.name = w.name.replace(/ 补录$/, "训练");
+          fixed = true;
+        }
+      });
+      if (fixed) {
+        try { localStorage.setItem(KEY, JSON.stringify(merged)); } catch (e) {}
+      }
+      return merged;
     } catch (e) {
       return JSON.parse(JSON.stringify(DEFAULT));
     }
