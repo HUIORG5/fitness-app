@@ -50,6 +50,9 @@
     gear_treadmill: '<path d="M2.5 18.5h19"/><path d="M5 18.5l2.5-4h11.5"/><path d="M19 14.5V8.5"/><path d="M16 8.5h5"/>',
     // 动作图标：只在大尺寸用（详情页 56px / 选择列表 32px），列表行太小会糊
     act_bench_flat_bb: '<path d="M3 18h18"/><path d="M5 7h14"/><path d="M5 5v4M19 5v4"/>',
+    // 宽距 / 窄距：只改杠铃横线的长短和两端位置。卡片放到 44px 后这个差异看得出来
+    act_bench_bb_wide: '<path d="M3 18h18"/><path d="M2.5 7h19"/><path d="M2.5 5v4M21.5 5v4"/>',
+    act_bench_bb_narrow: '<path d="M3 18h18"/><path d="M8 7h8"/><path d="M8 5v4M16 5v4"/>',
     act_bench_incline_bb: '<path d="M3 19.5L21 12.5"/><path d="M5 9L19 4"/><path d="M5 7v4M19 2v4"/>',
     act_bench_decline_bb: '<path d="M3 12.5L21 19.5"/><path d="M5 4L19 9"/><path d="M5 2v4M19 7v4"/>',
     act_bench_flat_db: '<path d="M3 18h18"/><g transform="rotate(-38 6 7)"><path d="M5 4.5v5M8 4.5v5M3.5 6v2M9.5 6v2M5 7h3"/></g><g transform="rotate(-38 18 7)"><path d="M17 4.5v5M20 4.5v5M15.5 6v2M21.5 6v2M17 7h3"/></g>',
@@ -70,6 +73,12 @@
     act_plank: '<path d="M3 19.5h18"/><circle cx="6" cy="13.5" r="1.8"/><path d="M8 14.5L18 15.5"/><path d="M8 15v4M16 15v4"/>',
     act_treadmill: '<path d="M2.5 18.5h19"/><path d="M5 18.5l2.5-4h11.5"/><path d="M19 14.5V8.5"/><path d="M16 8.5h5"/>',
     act_bike: '<circle cx="6" cy="16.5" r="3.2"/><circle cx="18" cy="16.5" r="3.2"/><path d="M6 16.5l4.5-6h5l2.5 6"/><path d="M9.5 8h4.5"/>',
+    // 有氧器械各画各的：原来 18 个动作全用跑步机图标，椭圆机/划船机/跳绳看着一模一样
+    act_elliptical: '<ellipse cx="12" cy="15.5" rx="8.5" ry="4.3"/><path d="M12 11.2V5"/><path d="M8.5 5h7"/>',
+    act_rowing: '<path d="M3 18h6M9 18h12"/><path d="M6 18l2.5-3.5h7L18 18"/><circle cx="12" cy="7" r="1.8"/><path d="M12 9v5.5"/>',
+    act_stairs: '<path d="M3 20h4.5v-4.5H12V11h4.5V6.5H21"/>',
+    act_rope: '<circle cx="12" cy="6.5" r="1.9"/><path d="M12 8.4v5"/><path d="M4.5 12c0 8 15 8 15 0"/>',
+    act_battle_rope: '<path d="M3 9c2.5 4 5-4 7.5 0s5-4 7.5 0"/><path d="M12 9v11"/><path d="M9 20h6"/>',
   };
   // 分类 → 图标名，动作库分类标题和日历图例都用这套
   const CAT_ICON = { 胸: "chest", 背: "back", 腿: "legs", 肩: "shoulder", 臂: "arms", 核心: "core", 有氧: "cardio" };
@@ -91,9 +100,24 @@
   function actionIconOf(ex) {
     const n = ex.name || "";
     const has = (re) => re.test(n);
-    if (ex.type === "time") return has(/单车|骑行/) ? "act_bike" : "act_treadmill";
+    if (ex.type === "time") {
+      if (has(/椭圆/)) return "act_elliptical";
+      if (has(/划船/)) return "act_rowing";
+      if (has(/台阶|踏步|爬楼|登山机/)) return "act_stairs";
+      if (has(/跳绳/)) return "act_rope";
+      if (has(/战绳/)) return "act_battle_rope";
+      if (has(/单车|骑行|健身车/)) return "act_bike";
+      if (has(/壶铃/)) return "gear_kettlebell";
+      if (has(/波比|跳箱|敏捷梯|开合跳/)) return "gear_body";
+      return "act_treadmill";
+    }
     if (has(/卧推|推胸/)) {
       if (has(/史密斯|器械|机|悍马/)) return "act_machine_press";
+      // 宽距 / 窄距要在哑铃之前判断：都是杠铃动作，横杠长短最直观
+      if (!has(/哑铃/)) {
+        if (has(/宽距|宽握/)) return "act_bench_bb_wide";
+        if (has(/窄距|窄握/)) return "act_bench_bb_narrow";
+      }
       if (has(/哑铃/)) return has(/上斜/) ? "act_bench_incline_db" : "act_bench_flat_db";
       if (has(/上斜/)) return "act_bench_incline_bb";
       if (has(/下斜/)) return "act_bench_decline_bb";

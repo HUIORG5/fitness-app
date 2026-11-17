@@ -254,6 +254,33 @@ svg{display:block;}
 .cal-legend span{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text-2);}
 .cal-legend i{width:7px;height:7px;border-radius:50%;display:block;}
 .cal-legend svg{flex:none;display:block;}
+/* ---------- 动作库：两列卡片 ----------
+   改成卡片是为了让动作图标能放到 44px。原来挤在 44px 行高里只能放 20px，
+   而 20px 下"卧推/划船/深蹲"几乎分不出来。 */
+.ex-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:0 16px 16px;}
+.ex-cell{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:16px 12px 12px;background:var(--card);border:none;border-radius:16px;
+  box-shadow:var(--shadow);font-family:inherit;color:var(--text);text-align:center;
+  transition:transform .12s ease;}
+.ex-cell:active{transform:scale(.96);}
+/* 图标垫一个浅色圆底：不放底的话几根线散在卡片上，看着不像「图」而像残留的符号 */
+.ex-cell-ico{width:72px;height:72px;border-radius:50%;background:var(--input-bg);
+  display:grid;place-items:center;line-height:0;}
+/* 图标放大到 44px 后，2.3 的描边会显得糊，压细一点 */
+.ex-cell-ico svg{stroke-width:1.7;}
+.ex-cell-name{font-size:13.5px;font-weight:600;line-height:1.3;word-break:break-word;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.ex-cell-meta{font-size:11.5px;color:var(--text-2);font-variant-numeric:tabular-nums;}
+.ex-cell.removed{opacity:.55;}
+.ex-cell.removed .ex-cell-ico svg{stroke:var(--text-3);}
+/* 拖动手柄：卡片右上角，弱化存在感 */
+.ex-cell .ex-drag{position:absolute;top:2px;right:2px;width:26px;height:26px;
+  color:var(--text-3);opacity:.5;}
+.ex-cell.dragging{opacity:.9;transform:scale(1.04);z-index:5;
+  box-shadow:0 10px 26px rgba(0,0,0,.18);}
+.ex-cell.dragging .ex-drag{color:var(--blue);opacity:1;cursor:grabbing;}
+.ex-cell.drag-bumping{transform:scale(.97);opacity:.8;}
+
 /* 动作库分类标题带部位图标 */
 .section-title.cat-title{display:flex;align-items:center;gap:6px;}
 .cat-title svg{flex:none;display:block;}

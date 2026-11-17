@@ -13,7 +13,7 @@
   const CAT_COLORS = Icons.CAT_COLORS;
   const CAT_COLOR_FALLBACK = Icons.CAT_COLOR_FALLBACK;
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v110";
+  const APP_VERSION = "v115";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -411,18 +411,21 @@
     keys.forEach((k) => {
       html += '<div class="section-title cat-title">' +
         (CAT_ICON[k] ? icon(CAT_ICON[k], 17, CAT_COLORS[k]) : "") +
-        "<span>" + k + "</span></div><div class=\"list\">" +
+        "<span>" + k + "</span></div>" +
+        // 卡片网格：图标能放到 44px，用的是动作级图标（卧推/深蹲/划船各不相同），
+        // 不再挤在 44px 行高的 20px 小图标里
+        '<div class="ex-grid">' +
         groups[k].map((e) => {
           const b = bm.e1ById[e.id] || bm.e1[e.name];
-          return '<button class="row" data-act="open-exercise-detail" data-id="' + e.id + '" data-ex-id="' + e.id + '">' +
-            '<span class="grow"><span class="gear-ico">' + icon(gearOf(e), 20) + "</span>" + esc(e.name) +
-            (e.custom ? ' <span class="ex-cat">自定义</span>' : "") + "</span>" +
-            // 最佳 e1RM 直接标在动作后面，不用再翻统计页
-            (b ? '<span class="ex-best">' + U.fmt(b.val) + "<small>" + U.cur() + "</small></span>" : "") +
-            (e.type === "time"
-              ? '<span class="val">' + (timeMap[e.id] ? fmtMins(Math.round(timeMap[e.id] / 60)) : typeTag(e.type)) + "</span>"
-              : "") +
-            '<span class="ex-drag" aria-label="拖动排序">' + icon("list", 16) + "</span>" +
+          const meta = e.type === "time"
+            ? (timeMap[e.id] ? fmtMins(Math.round(timeMap[e.id] / 60)) : typeTag(e.type))
+            : (b ? U.fmt(b.val) + " " + U.cur() : "");
+          const sub = e.custom ? (meta ? "自定义 · " + meta : "自定义") : meta;
+          return '<button class="ex-cell" data-act="open-exercise-detail" data-id="' + e.id + '" data-ex-id="' + e.id + '">' +
+            '<span class="ex-cell-ico">' + icon(actionIconOf(e), 44, CAT_COLORS[e.cat] || "currentColor") + "</span>" +
+            '<span class="ex-cell-name">' + esc(e.name) + "</span>" +
+            (sub ? '<span class="ex-cell-meta">' + sub + "</span>" : "") +
+            '<span class="ex-drag" aria-label="拖动排序">' + icon("list", 14) + "</span>" +
             "</button>";
         }).join("") + "</div>";
     });
@@ -431,11 +434,13 @@
     // 没有「全部」视图后，已移除的动作归到「自定义」里显示，仍可点进去恢复
     const showHidden = hidden.length && !q && exFilter.cat === "自定义";
     if (showHidden) {
-      html += '<div class="section-title">已移除的动作 · ' + hidden.length + "</div><div class=\"list\">" +
+      html += '<div class="section-title">已移除的动作 · ' + hidden.length + "</div>" +
+        '<div class="ex-grid">' +
         hidden.map((e) =>
-          '<button class="row" data-act="open-exercise-detail" data-id="' + e.id + '">' +
-          '<span class="grow" style="color:var(--text-2)">' + esc(e.name) + "</span>" +
-          '<span class="val">已移除</span></button>').join("") + "</div>";
+          '<button class="ex-cell removed" data-act="open-exercise-detail" data-id="' + e.id + '">' +
+          '<span class="ex-cell-ico">' + icon(actionIconOf(e), 44, CAT_COLORS[e.cat] || "currentColor") + "</span>" +
+          '<span class="ex-cell-name">' + esc(e.name) + "</span>" +
+          '<span class="ex-cell-meta">已移除 · 点进去可恢复</span></button>').join("") + "</div>";
     }
     box.innerHTML = html;
     injectIcons(box);
@@ -665,16 +670,21 @@
       const list = exDrag.row.parentElement;
       if (!list) return;
       const rows = Array.prototype.slice.call(list.querySelectorAll("[data-ex-id]"));
-      let target = null;
-      for (let i = 0; i < rows.length; i++) {
-        const r = rows[i];
-        if (r === exDrag.row) continue;
+      // 两列网格：只看 Y 会让卡片在左右列之间乱跳，改成找最近的格子，
+      // 同行比左右、跨行比上下，再决定插到它前面还是后面
+      let target = null, bestD = Infinity, before = true;
+      rows.forEach((r) => {
+        if (r === exDrag.row) return;
         const b = r.getBoundingClientRect();
-        if (e.clientY < b.top + b.height / 2) { target = r; break; }
-      }
-      if (target) list.insertBefore(exDrag.row, target);
-      else list.appendChild(exDrag.row);
-      // 正在被跨越的那一行轻微“下沉”，让拖动项更突出
+        const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+        const d = Math.hypot(e.clientX - cx, e.clientY - cy);
+        if (d < bestD) {
+          bestD = d;
+          target = r;
+          before = Math.abs(e.clientY - cy) < b.height / 2 ? e.clientX < cx : e.clientY < cy;
+        }
+      });
+      if (target) list.insertBefore(exDrag.row, before ? target : target.nextSibling);
       rows.forEach((r) => r.classList.toggle("drag-bumping", r !== exDrag.row && r === target));
     }, true);
     document.addEventListener("pointerup", endExDrag, true);
