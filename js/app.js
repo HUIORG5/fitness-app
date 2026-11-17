@@ -13,7 +13,7 @@
   const CAT_COLORS = Icons.CAT_COLORS;
   const CAT_COLOR_FALLBACK = Icons.CAT_COLOR_FALLBACK;
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v106";
+  const APP_VERSION = "v108";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -72,6 +72,28 @@
     return (e.exerciseId && old.volById[e.exerciseId]) || old.vol[e.name] || null;
   }
   // 上次练这个动作的记录。按 ID 优先匹配，改过名也能接上（否则第一组预填和「上次」提示会失效）
+  // 常用重量：这个动作历史上用过的重量（去重），不够 6 个时用常见梯度补齐。
+  // 热身的时候往往是「重量上去、次数不变」，所以这里的按钮只改重量，不动次数。
+  function commonWeights(ex) {
+    if (!ex) return [];
+    const id = ex.id || ex.exerciseId, name = ex.name;
+    const hit = (x) => (id && x.exerciseId === id) || x.name === name;
+    const seen = {};
+    Store.data.workouts.forEach((w) => {
+      w.exercises.forEach((e) => {
+        if (!hit(e)) return;
+        e.sets.forEach((s) => {
+          if (!isDone(s) || !(s.kg > 0)) return;
+          seen[s.kg] = (seen[s.kg] || 0) + 1;
+        });
+      });
+    });
+    const used = Object.keys(seen).map(Number).sort((a, b) => seen[b] - seen[a]);
+    const all = [];
+    used.forEach((kg) => { if (all.length < 4 && all.indexOf(kg) < 0) all.push(kg); });
+    [20, 40, 60, 80, 100].forEach((kg) => { if (all.length < 6 && all.indexOf(kg) < 0) all.push(kg); });
+    return all.sort((a, b) => a - b);
+  }
   function lastSets(ex) {
     if (!ex) return null;
     const id = ex.id, name = ex.name;
@@ -277,7 +299,9 @@
     return '<button class="history-row" data-act="open-workout-detail" data-id="' + w.id + '">' +
       '<span class="hr-date"><b>' + d.getDate() + '</b><small>' + fmtWD(d) + '</small></span>' +
       '<span class="hr-info"><span class="hr-line"><b>' + esc(w.name) + "</b>" +
-      (cat ? '<span class="hr-cat">' + esc(cat) + "</span>" : "") + "</span>" +
+      // 有计划就标出来，免得「11月17日训练」看不出是从计划练的；部位和计划同名就不重复标
+      (w.planName ? '<span class="hr-plan">计划 · ' + esc(w.planName) + "</span>" : "") +
+      (cat && cat !== w.planName ? '<span class="hr-cat">' + esc(cat) + "</span>" : "") + "</span>" +
       '<small>' + fmtDate(d) + " · " + fmtDur(w.endedAt - w.startedAt) +
       " · " + w.exercises.length + " 动作 · " + setCount(w) + " 组</small></span>" +
       '<span class="hr-vol">' + right + "</span></button>";
@@ -1026,6 +1050,17 @@
         '<input id="in-reps" type="number" inputmode="numeric" value="' + draft.reps + '">' +
         '<button data-noblur data-act="inc-reps">+</button></span></div>';
     }
+    // 常用重量：热身时不想每次按加减号，这里点一下就换重量（次数保持不变）
+    let weightHtml = "";
+    if (e.type !== "time") {
+      const ws = commonWeights(e);
+      if (ws.length) {
+        weightHtml = '<div class="last-sets weight-chips"><b>常用重量</b>' +
+          ws.map((kg) => '<button class="ls-item" data-act="apply-weight" data-kg="' + kg + '">' +
+            U.fmt(kg) + "</button>").join("") +
+          '<span class="ls-tip">点一下只换重量，次数不变</span></div>';
+      }
+    }
     let lastHtml = "";
     if (last && last.sets.length) {
       // 每条都能点：点一下把那次的数据填进当前输入框，省得照着抄
@@ -1043,7 +1078,7 @@
       '<div class="sheet-sub">' + (fromPlan
         ? (e.type === "time" ? "计划这一组做多久" : "计划这一组的目标：练的时候会按这个预填")
         : (e.type === "time" ? "记录本组时长" : "记录本组重量与次数，容量自动计算")) + "</div>" +
-      rows + lastHtml +
+      rows + weightHtml + lastHtml +
       '<button class="btn big" style="margin-top:16px" data-act="save-set">' + (fromPlan ? "保存" : (editing ? "保存修改" : "完成本组")) + "</button>" +
       (editing && !fromPlan ? '<button class="btn danger" style="margin-top:10px" data-act="delete-set">删除本组</button>' : "");
     injectIcons($("#sheet-content"));
@@ -1091,6 +1126,7 @@
     inp.value = v < 0 ? 0 : Math.round(v * 10) / 10;
   }
   function saveSet() {
+    if (!draft) return;   // 弹层已关（重复点击等），没有草稿就什么都不做
     // 计划模式：只改这一组的目标值，不碰 activeWorkout
     if (draft.planIdx != null) {
       const pi = draft.planIdx;
@@ -1510,10 +1546,14 @@
     const isTime = it.type === "time";
     const targets = it.targets || [];
     const unit = unitOf({ exerciseId: it.exerciseId });
+    // 同一个重量重复的组标 ×1 ×2 …，不用自己数有几组（和训练界面一致）
+    const repIdx = isTime ? [] : repIdxOf(targets);
     const rows = targets.map((t, ti) =>
       '<tr><td class="set-idx">' + (ti + 1) + "</td><td>" +
       '<button class="set-row-btn set-main" data-act="plan-set-edit" data-i="' + i + '" data-si="' + ti + '">' +
-      setText(t, it.type, unit) + "</button></td></tr>").join("");
+      setText(t, it.type, unit) +
+      (repIdx[ti] ? '<span class="rep-idx">×' + repIdx[ti] + "</span>" : "") +
+      "</button></td></tr>").join("");
     // 有氧固定 1 组，不给步进——做一次就是一组，排成 3 组没有意义
     const stepper = isTime ? '<span class="plan-fixed">1 组</span>' :
       '<span class="plan-sets"><button data-noblur data-act="plan-set-dec" data-i="' + i + '">−</button>' +
@@ -1681,8 +1721,10 @@
     if (!p || p.deleted) return;
     if (Store.data.activeWorkout) { toast("请先完成或放弃当前训练"); return; }
     Store.data.activeWorkout = {
-      id: Store.uid(), startedAt: Date.now(), name: p.name,
-      planId: p.id,                       // 来源计划
+      id: Store.uid(), startedAt: Date.now(),
+      // 名字和普通训练一致（"11月17日训练"），计划名单独存，列表里用小标签标出来
+      name: fmtDate(new Date()) + "训练",
+      planId: p.id, planName: p.name,     // 来源计划
       // 按计划里的组数把目标组先摆出来（done:false）：练完一组点一下圈，才算做了
       exercises: p.items.map((it) => {
         const e = {
@@ -2670,6 +2712,10 @@
     "dec-sec": () => bump("#in-sec", draft && draft.unit === "min" ? -1 : -15),
     "quick-sec": (el) => { $("#in-sec").value = el.dataset.v; },
     // 点「上次」里的某一条，把重量/次数（或时长）填进当前输入框
+    "apply-weight": (el) => {
+      const inp = $("#in-kg");
+      if (inp) { inp.value = U.fmt(parseFloat(el.dataset.kg) || 0); inp.focus(); }
+    },
     "apply-last": (el) => {
       const w = Store.data.activeWorkout;
       if (!w || !draft) return;

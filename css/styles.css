@@ -285,6 +285,10 @@ svg{display:block;}
 .hr-line{display:flex;align-items:center;gap:6px;min-width:0;}
 .hr-line b{min-width:0;}
 .hr-cat{flex:none;font-size:11px;font-weight:600;color:var(--blue);background:var(--blue-soft);border-radius:6px;padding:1px 6px;line-height:1.6;}
+/* 训练来自哪个计划：灰底标签，和蓝色的部位标签区分开 */
+.hr-plan{flex:none;font-size:11px;font-weight:600;color:var(--text-2);background:var(--input-bg);
+  border-radius:6px;padding:1px 6px;line-height:1.6;max-width:96px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;}
 .hr-vol{text-align:right;font-size:14px;font-weight:700;color:var(--blue);font-variant-numeric:tabular-nums;flex:none;}
 .hr-vol small{display:block;font-weight:500;color:var(--text-2);font-size:11px;}
 
@@ -454,7 +458,7 @@ svg{display:block;}
 }
 .stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;}
 .row .stepper{flex:none;}
-.last-sets{margin:14px 0;padding:12px 14px;background:var(--card-2);border-radius:14px;}
+.last-sets{margin:14px 0 8px;padding:12px 14px;background:var(--card-2);border-radius:14px;}
 .last-sets b{font-size:12px;color:var(--text-2);display:block;margin-bottom:6px;}
 .last-sets .ls-item{display:inline-block;background:var(--card);border:none;border-radius:8px;padding:5px 9px;
   font-size:13px;font-weight:700;margin:0 6px 6px 0;font-variant-numeric:tabular-nums;

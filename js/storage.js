@@ -328,6 +328,19 @@
           w.name = w.name.replace(/ 补录$/, "训练");
           fixed = true;
         }
+        // 从计划开始的训练曾经直接拿计划名当标题（比如「胸」），和普通训练不一致。
+        // 现在统一叫「X月X日训练」，计划名放 planName 用标签显示。
+        if (w.planId && !w.planName) {
+          const p = (merged.plans || []).find((x) => x.id === w.planId);
+          if (p) {
+            w.planName = p.name;
+            if (!w.name || w.name === p.name) {
+              const d = new Date(w.startedAt);
+              w.name = (d.getMonth() + 1) + "月" + d.getDate() + "日训练";
+            }
+            fixed = true;
+          }
+        }
       });
       if (fixed) {
         try { localStorage.setItem(KEY, JSON.stringify(merged)); } catch (e) {}
