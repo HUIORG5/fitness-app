@@ -13,7 +13,7 @@
   const CAT_COLORS = Icons.CAT_COLORS;
   const CAT_COLOR_FALLBACK = Icons.CAT_COLOR_FALLBACK;
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v109";
+  const APP_VERSION = "v110";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -304,7 +304,12 @@
       '<small>' + fmtDur(w.endedAt - w.startedAt) +
       " · " + w.exercises.length + " 动作 · " + setCount(w) + " 组</small>" +
       // 计划名单独占一行：一行里挤不下，长名字会被截断；这样多长的名字都能看全
-      (w.planName ? '<small class="hr-plan">计划 · ' + esc(w.planName) + "</small>" : "") +
+      // 有计划 id 时可点，直接跳到那个计划
+      (w.planName
+        ? '<small class="hr-plan' + (w.planId ? " tappable" : "") + '"' +
+        (w.planId ? ' data-act="open-plan" data-id="' + w.planId + '"' : "") +
+        ">计划 · " + esc(w.planName) + (w.planId ? " ›" : "") + "</small>"
+        : "") +
       "</span>" +
       '<span class="hr-vol">' + right + "</span></button>";
   }
@@ -2803,6 +2808,11 @@
     "plan-new": () => openPlanEditor(null),
     "plan-edit": (el) => openPlanEditor(el.dataset.id),
     "plan-detail": (el) => openPlanDetail(el.dataset.id),
+    "open-plan": (el) => {
+      const p = Store.findPlan(el.dataset.id);
+      if (!p || p.deleted) { toast("这个计划已经不在了"); return; }
+      openPlanDetail(el.dataset.id);
+    },
     "plan-start": (el) => startPlanWorkout(el.dataset.id),
     "plan-save": savePlanFromEditor,
     "plan-add-ex": openPlanAddExercise,
