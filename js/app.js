@@ -13,7 +13,7 @@
   const CAT_COLORS = Icons.CAT_COLORS;
   const CAT_COLOR_FALLBACK = Icons.CAT_COLOR_FALLBACK;
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v103";
+  const APP_VERSION = "v106";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -959,9 +959,19 @@
 
   /* ---------- 记录组 ---------- */
   let draft = null;
-  function openSetSheet(entryIdx, setIdx) {
-    const w = Store.data.activeWorkout;
-    const e = w.exercises[entryIdx];
+  // 两种用法：训练中改实际记录的组；计划编辑器里改「目标」的某组（第三参给计划项下标）
+  function openSetSheet(entryIdx, setIdx, planIdx) {
+    const fromPlan = planIdx != null;
+    let e;
+    if (fromPlan) {
+      const it = planDraft.items[planIdx];
+      if (!it) return;
+      // 合成一个和训练里结构相似的对象，下面的取值逻辑就能原样复用
+      e = { id: it.exerciseId, exerciseId: it.exerciseId, name: it.name, cat: it.cat, type: it.type,
+        sets: it.targets || [] };
+    } else {
+      e = Store.data.activeWorkout.exercises[entryIdx];
+    }
     const editing = setIdx != null;
     const s = editing ? e.sets[setIdx] : null;
     const prevSet = !editing && e.sets.length ? e.sets[e.sets.length - 1] : null;
@@ -989,7 +999,7 @@
       sec = unitOf(e) === "min" ? 300 : 60;
     }
     draft = {
-      i: entryIdx, si: setIdx,
+      i: entryIdx, si: setIdx, planIdx: fromPlan ? planIdx : null,
       unit: e.type === "time" ? unitOf(e) : "sec",
       kg: kg, reps: reps, sec: sec,
     };
@@ -1027,11 +1037,15 @@
         '<span class="ls-tip">点一下填入</span></div>';
     }
     $("#sheet-content").innerHTML =
-      '<div class="sheet-title">' + (editing ? "修改组" : "添加组") + " · " + esc(e.name) + "</div>" +
-      '<div class="sheet-sub">' + (e.type === "time" ? "记录本组时长" : "记录本组重量与次数，容量自动计算") + "</div>" +
+      '<div class="sheet-title">' + (fromPlan
+        ? "第 " + (setIdx + 1) + " 组 · " + esc(e.name)
+        : (editing ? "修改组" : "添加组") + " · " + esc(e.name)) + "</div>" +
+      '<div class="sheet-sub">' + (fromPlan
+        ? (e.type === "time" ? "计划这一组做多久" : "计划这一组的目标：练的时候会按这个预填")
+        : (e.type === "time" ? "记录本组时长" : "记录本组重量与次数，容量自动计算")) + "</div>" +
       rows + lastHtml +
-      '<button class="btn big" style="margin-top:16px" data-act="save-set">' + (editing ? "保存修改" : "完成本组") + "</button>" +
-      (editing ? '<button class="btn danger" style="margin-top:10px" data-act="delete-set">删除本组</button>' : "");
+      '<button class="btn big" style="margin-top:16px" data-act="save-set">' + (fromPlan ? "保存" : (editing ? "保存修改" : "完成本组")) + "</button>" +
+      (editing && !fromPlan ? '<button class="btn danger" style="margin-top:10px" data-act="delete-set">删除本组</button>' : "");
     injectIcons($("#sheet-content"));
     showSheet();
   }
@@ -1049,7 +1063,26 @@
       s.at = Date.now();
     }
     Store.save();
-    renderWorkout();
+    // 只更新这一行：整页重绘会换掉所有节点，手指连点时第二下就落在已销毁的按钮上（真的丢过）
+    const btn = $('#workout-body .set-check[data-i="' + i + '"][data-si="' + si + '"]');
+    const tr = btn && btn.closest("tr");
+    const done = isDone(s);
+    if (btn) {
+      btn.classList.toggle("on", done);
+      btn.setAttribute("aria-label", done ? "取消完成" : "标记完成");
+    }
+    if (tr) {
+      tr.classList.toggle("pending", !done);
+      const td = tr.querySelector(".set-e1rm");
+      if (td) td.textContent = (e.type === "time" || setE1RM(s) <= 0) ? "—" : U.fmt(setE1RM(s));
+    }
+    // 卡片右上角的容量
+    const cards = $$("#workout-body .ex-card");
+    const badge = cards[i] && cards[i].querySelector(".ex-cat");
+    if (badge) badge.textContent = e.type === "time"
+      ? fmtMins(Math.round(e.sets.reduce((a, x) => a + (isDone(x) ? (x.sec || 0) : 0), 0) / 60))
+      : fmtVol(exVol(e));
+    updateWorkoutMeta();
   }
   function bump(sel, delta) {
     const inp = $(sel);
@@ -1058,6 +1091,25 @@
     inp.value = v < 0 ? 0 : Math.round(v * 10) / 10;
   }
   function saveSet() {
+    // 计划模式：只改这一组的目标值，不碰 activeWorkout
+    if (draft.planIdx != null) {
+      const pi = draft.planIdx;
+      const it = planDraft.items[pi];
+      const t = it && it.targets && it.targets[draft.si];
+      if (!t) { draft = null; closeSheet(); return; }
+      if (it.type === "time") {
+        const raw = Math.round(parseFloat($("#in-sec").value) || 0);
+        t.sec = Math.max(1, draft.unit === "min" ? raw * 60 : raw);
+      } else {
+        t.kg = Math.max(0, Math.round(U.dispToKg(parseFloat($("#in-kg").value) || 0) * 10) / 10);
+        t.reps = Math.max(1, Math.round(parseFloat($("#in-reps").value) || 0));
+      }
+      draft = null;
+      closeSheet();
+      const card = $('#plan-body .ex-card[data-pi="' + pi + '"]');
+      if (card) card.outerHTML = planEditRow(planDraft.items[pi], pi);
+      return;
+    }
     const w = Store.data.activeWorkout;
     const e = w.exercises[draft.i];
     const newAt = Date.now(); // 上组完成时间
@@ -1281,11 +1333,11 @@
         updatePickDone();
         return;
       }
-      // 单选模式：点一下就加入并关闭。默认 3 组，可以在编辑器里改
-      planDraft.items.push({
+      // 单选模式：点一下就加入并关闭。有氧固定 1 组，力量默认 3 组（编辑器里可改）
+      planDraft.items.push(normalizePlanItem({
         id: "pi_" + Store.uid(), exerciseId: ex.id, name: ex.name, cat: ex.cat, type: ex.type,
-        setCount: 3,
-      });
+        setCount: ex.type === "time" ? 1 : 3,
+      }));
       picker.from = null;
       closeSheet();
       renderPlanEditor();
@@ -1412,11 +1464,24 @@
   }
 
   /* ---------- 新建 / 编辑计划 ---------- */
+  // 计划里的「目标」：每组存一个 {kg, reps, sec}。
+  // 有氧动作固定 1 组（做一次就是一组），力量动作按组数排。
+  function normalizePlanItem(it) {
+    it.setCount = it.type === "time" ? 1 : Math.max(1, it.setCount || 3);
+    const old = Array.isArray(it.targets) ? it.targets : [];
+    const next = [];
+    const ex = { exerciseId: it.exerciseId, name: it.name, type: it.type };
+    for (let k = 0; k < it.setCount; k++) {
+      next.push(old[k] ? Object.assign({}, old[k]) : seedValues(ex, next[k - 1] || null));
+    }
+    it.targets = next;
+    return it;
+  }
   function openPlanEditor(id) {
     const p = id ? Store.findPlan(id) : null;
     planDraft.id = p ? p.id : null;
     planDraft.name = p ? p.name : "";
-    planDraft.items = p ? p.items.map((it) => Object.assign({}, it)) : [];
+    planDraft.items = p ? p.items.map((it) => normalizePlanItem(Object.assign({}, it))) : [];
     renderPlanEditor();
   }
   function renderPlanEditor() {
@@ -1440,25 +1505,46 @@
     if (nameEl && nameEl.value.trim()) planDraft.name = nameEl.value;
     $("#plan-view").classList.remove("show");
   }
-  // 编辑态的一项：动作 + 目标组数。只设组数，重量和次数留到训练时逐组记
+  // 编辑态的一项：动作 + 组数 + 每组的目标重量/次数（点那一行就能改）
   function planEditRow(it, i) {
+    const isTime = it.type === "time";
+    const targets = it.targets || [];
+    const unit = unitOf({ exerciseId: it.exerciseId });
+    const rows = targets.map((t, ti) =>
+      '<tr><td class="set-idx">' + (ti + 1) + "</td><td>" +
+      '<button class="set-row-btn set-main" data-act="plan-set-edit" data-i="' + i + '" data-si="' + ti + '">' +
+      setText(t, it.type, unit) + "</button></td></tr>").join("");
+    // 有氧固定 1 组，不给步进——做一次就是一组，排成 3 组没有意义
+    const stepper = isTime ? '<span class="plan-fixed">1 组</span>' :
+      '<span class="plan-sets"><button data-noblur data-act="plan-set-dec" data-i="' + i + '">−</button>' +
+      "<b>" + (it.setCount || 3) + "</b><em>组</em>" +
+      '<button data-noblur data-act="plan-set-inc" data-i="' + i + '">+</button></span>';
     return '<div class="ex-card" data-pi="' + i + '">' +
       '<div class="ex-head">' +
       '<span class="grow"><b>' + (i + 1) + ". " + esc(it.name) + "</b><small>" +
       catLine(it.cat, it.type) + "</small></span>" +
-      '<span class="plan-sets"><button data-noblur data-act="plan-set-dec" data-i="' + i + '">−</button>' +
-      "<b>" + (it.setCount || 3) + "</b><em>组</em>" +
-      '<button data-noblur data-act="plan-set-inc" data-i="' + i + '">+</button></span>' +
+      stepper +
       '<button class="nav-btn" style="width:30px;height:30px;background:none;color:var(--text-3)" data-act="plan-item-del" data-i="' + i + '">' +
-      icon("trash", 18) + "</button></div></div>";
+      icon("trash", 18) + "</button></div>" +
+      (targets.length
+        ? '<table class="set-table"><tr><th>组</th><th>' + (isTime ? "时长" : "重量 × 次数") + "</th></tr>" + rows + "</table>"
+        : "") +
+      "</div>";
   }
-  // 改组数：只更新那一个数字，不整页重渲染（否则名称输入框会丢焦点）
+  // 改组数：多出来的组复制上一组的值，少了就截断，然后只重渲染这一张卡（不整页刷，名称输入框不丢焦点）
   function bumpPlanSets(i, delta) {
     const it = planDraft.items[i];
-    if (!it) return;
+    if (!it || it.type === "time") return;
     it.setCount = Math.max(1, Math.min(12, (it.setCount || 3) + delta));
-    const el = $('#plan-body .ex-card[data-pi="' + i + '"] .plan-sets b');
-    if (el) el.textContent = it.setCount;
+    it.targets = it.targets || [];
+    while (it.targets.length < it.setCount) {
+      const last = it.targets[it.targets.length - 1];
+      it.targets.push(last ? Object.assign({}, last)
+        : seedValues({ exerciseId: it.exerciseId, name: it.name, type: it.type }, null));
+    }
+    it.targets.length = it.setCount;
+    const card = $('#plan-body .ex-card[data-pi="' + i + '"]');
+    if (card) card.outerHTML = planEditRow(it, i);
   }
   /* ---------- 编辑器辅助 ---------- */
   // 添加动作（计划）：默认「点一下即加入并关闭」（和训练页一致）；
@@ -1508,10 +1594,10 @@
     ids.forEach((id) => {
       const ex = Store.findExercise(id);
       if (!ex) return;
-      planDraft.items.push({
+      planDraft.items.push(normalizePlanItem({
         id: "pi_" + Store.uid(), exerciseId: ex.id, name: ex.name, cat: ex.cat, type: ex.type,
-        setCount: 3,
-      });
+        setCount: ex.type === "time" ? 1 : 3,
+      }));
     });
     const n = ids.length;
     picker.from = null;
@@ -1538,10 +1624,11 @@
     const name = ($("#plan-name").value || "").trim();
     if (!name) { toast("请先填写计划名称"); return; }
     if (!planDraft.items.length) { toast("至少添加一个动作"); return; }
-    // 保留动作 + 目标组数；重量和次数仍留到训练时逐组记
+    // 保留动作 + 组数 + 每组的目标重量/次数/时长
     const clean = () => planDraft.items.map((it) => ({
       id: it.id, exerciseId: it.exerciseId, name: it.name, cat: it.cat, type: it.type,
-      setCount: it.setCount || 3,
+      setCount: it.type === "time" ? 1 : (it.setCount || 3),
+      targets: (it.targets || []).map((t) => ({ kg: t.kg || 0, reps: t.reps || 0, sec: t.sec || 0 })),
     }));
     const now = Date.now();
     const plan = planDraft.id ? Store.findPlan(planDraft.id) : null;
@@ -1578,7 +1665,7 @@
   // 预排一组时的默认值：首组按「我的」里设的默认重量/次数，没设就跟随上次训练；后续接上一组
   function seedValues(e, prev) {
     if (prev) return { kg: prev.kg, reps: prev.reps, sec: prev.sec || 0 };
-    if (e.type === "time") return { kg: 0, reps: 0, sec: unitOf(e) === "min" ? 300 : 60 };
+    if (e.type === "time") return { kg: 0, reps: 0, sec: unitOf(e) === "min" ? 600 : 60 };
     const st = Store.data.settings;
     const last = lastSets({ id: e.exerciseId, name: e.name });
     const lastSet = last && last.sets.length ? last.sets[last.sets.length - 1] : null;
@@ -1602,10 +1689,16 @@
           id: Store.uid(), exerciseId: it.exerciseId, name: it.name,
           cat: it.cat, type: it.type, sets: [],
         };
-        const n = Math.max(1, it.setCount || 3);
+        // 计划里已经定好每组的目标重量/次数/时长，直接照搬；
+        // 老计划没有 targets 才回退到「默认设置 / 上次训练」
+        const targets = Array.isArray(it.targets) ? it.targets : [];
+        const n = Math.max(1, it.type === "time" ? 1 : (it.setCount || targets.length || 3));
         let prev = null;
         for (let k = 0; k < n; k++) {
-          const v = seedValues(e, prev);
+          const t = targets[k];
+          const v = t
+            ? { kg: t.kg || 0, reps: t.reps || 0, sec: t.sec || 0 }
+            : seedValues(e, prev);
           const set = { id: Store.uid(), kg: v.kg, reps: v.reps, sec: v.sec, at: 0, done: false };
           e.sets.push(set);
           prev = set;
@@ -2568,6 +2661,7 @@
     "toggle-set": (el) => toggleSetDone(+el.dataset.i, +el.dataset.si),
     "plan-set-dec": (el) => bumpPlanSets(+el.dataset.i, -1),
     "plan-set-inc": (el) => bumpPlanSets(+el.dataset.i, +1),
+    "plan-set-edit": (el) => openSetSheet(null, +el.dataset.si, +el.dataset.i),
     "inc-kg": () => bump("#in-kg", U.step()),
     "dec-kg": () => bump("#in-kg", -U.step()),
     "inc-reps": () => bump("#in-reps", 1),

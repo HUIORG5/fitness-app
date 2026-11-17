@@ -383,6 +383,10 @@ svg{display:block;}
 .plan-sets b{font-size:15px;min-width:16px;text-align:center;font-variant-numeric:tabular-nums;}
 .plan-sets em{font-style:normal;font-size:12px;color:var(--text-2);}
 
+/* 有氧在计划里固定 1 组，不用步进，只标一下 */
+.plan-fixed{font-size:12.5px;color:var(--text-2);background:var(--input-bg);
+  padding:4px 10px;border-radius:8px;margin-right:4px;}
+
 /* 计划详情里每项的组数 */
 .pd-sets{font-size:13px;font-weight:700;color:var(--blue);background:var(--blue-soft);
   padding:3px 9px;border-radius:7px;flex:none;}
