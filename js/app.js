@@ -13,7 +13,7 @@
   const CAT_COLORS = Icons.CAT_COLORS;
   const CAT_COLOR_FALLBACK = Icons.CAT_COLOR_FALLBACK;
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v117";
+  const APP_VERSION = "v118";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -374,19 +374,40 @@
   function renderExercises() {
     $("#category-chips").innerHTML = Store.CATS.map((c) =>
       '<button class="chip' + (exFilter.cat === c ? " active" : "") + '" data-act="filter-cat" data-cat="' + c + '">' + c + "</button>").join("");
-    // 拖过排序后「按训练次数排」就不再生效了，给一条退回去的入口，否则用户会以为排序坏了
-    const hint = $("#ex-order-hint");
-    if (hint) {
-      const hasOrder = (Store.data.exOrder || []).length > 0;
-      hint.innerHTML = "按住右侧 ≡ 可拖动排序" +
-        (hasOrder ? ' · <button class="hint-link" data-act="reset-ex-order">改回按训练次数排序</button>' : "");
-    }
+    // 搜索用空格分词：「平板 宽距」等价于「平板 且 宽距」，比整串匹配好用得多
     const q = exFilter.q.trim().toLowerCase();
+    const words = q ? q.split(/\s+/).filter(Boolean) : [];
     const list = Store.allExercises().filter((e) => {
-      if (q) return e.name.toLowerCase().indexOf(q) >= 0;   // 搜索时不限分类
+      if (words.length) {
+        const n = e.name.toLowerCase();
+        return words.every((w) => n.indexOf(w) >= 0);   // 搜索时不限分类
+      }
       if (exFilter.cat === "自定义") return !!e.custom;
       return e.cat === exFilter.cat;
     });
+    // 搜索结果：以第一个词开头的排前面，再按名字短的优先（通常更接近本意）
+    if (words.length) {
+      list.sort((a, b) => {
+        const sa = a.name.toLowerCase().indexOf(words[0]) === 0 ? 0 : 1;
+        const sb = b.name.toLowerCase().indexOf(words[0]) === 0 ? 0 : 1;
+        if (sa !== sb) return sa - sb;
+        return a.name.length - b.name.length;
+      });
+    }
+    // 拖过排序后「按训练次数排」就不再生效了，给一条退回去的入口，否则用户会以为排序坏了
+    const hint = $("#ex-order-hint");
+    if (hint) {
+      if (words.length) {
+        // 搜索时告诉你有几个结果：0 个就直说换词，别让人以为卡住了
+        hint.innerHTML = list.length
+          ? "找到 <b>" + list.length + "</b> 个"
+          : "没找到 · 换个词试试，比如「上斜 哑铃」";
+      } else {
+        const hasOrder = (Store.data.exOrder || []).length > 0;
+        hint.innerHTML = "按住右侧 ≡ 可拖动排序" +
+          (hasOrder ? ' · <button class="hint-link" data-act="reset-ex-order">改回按训练次数排序</button>' : "");
+      }
+    }
     const box = $("#exercise-list");
     if (!list.length) {
       box.innerHTML = '<div class="empty">' + icon("dumbbell", 40) + "<b>没有找到动作</b><p>换个关键词，或点右上角自定义动作</p></div>";
