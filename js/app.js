@@ -13,7 +13,7 @@
   const CAT_COLORS = Icons.CAT_COLORS;
   const CAT_COLOR_FALLBACK = Icons.CAT_COLOR_FALLBACK;
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v116";
+  const APP_VERSION = "v117";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -415,7 +415,8 @@
         groups[k].map((e) => {
           const b = bm.e1ById[e.id] || bm.e1[e.name];
           return '<button class="row" data-act="open-exercise-detail" data-id="' + e.id + '" data-ex-id="' + e.id + '">' +
-            '<span class="grow"><span class="gear-ico">' + icon(gearOf(e), 20) + "</span>" + esc(e.name) +
+            // 行内不放图标：20px 的线性图标在这个粒度上没有信息量，反而让列表更花
+            '<span class="grow">' + esc(e.name) +
             (e.custom ? ' <span class="ex-cat">自定义</span>' : "") + "</span>" +
             // 最佳 e1RM 直接标在动作后面，不用再翻统计页
             (b ? '<span class="ex-best">' + U.fmt(b.val) + "<small>" + U.cur() + "</small></span>" : "") +
