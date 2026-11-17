@@ -330,13 +330,18 @@
         }
         // 从计划开始的训练曾经直接拿计划名当标题（比如「胸」），和普通训练不一致。
         // 现在统一叫「X月X日训练」，计划名放 planName 用标签显示。
+        // 训练名统一成纯日期：「11月17日训练」太长，列表里放不下，而且小字里已经写了日期
+        if (/^\d+月\d+日训练$/.test(w.name || "")) {
+          w.name = w.name.replace(/训练$/, "");
+          fixed = true;
+        }
         if (w.planId && !w.planName) {
           const p = (merged.plans || []).find((x) => x.id === w.planId);
           if (p) {
             w.planName = p.name;
             if (!w.name || w.name === p.name) {
               const d = new Date(w.startedAt);
-              w.name = (d.getMonth() + 1) + "月" + d.getDate() + "日训练";
+              w.name = (d.getMonth() + 1) + "月" + d.getDate() + "日";
             }
             fixed = true;
           }

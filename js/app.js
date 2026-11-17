@@ -13,7 +13,7 @@
   const CAT_COLORS = Icons.CAT_COLORS;
   const CAT_COLOR_FALLBACK = Icons.CAT_COLOR_FALLBACK;
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v108";
+  const APP_VERSION = "v109";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -299,11 +299,13 @@
     return '<button class="history-row" data-act="open-workout-detail" data-id="' + w.id + '">' +
       '<span class="hr-date"><b>' + d.getDate() + '</b><small>' + fmtWD(d) + '</small></span>' +
       '<span class="hr-info"><span class="hr-line"><b>' + esc(w.name) + "</b>" +
-      // 有计划就标出来，免得「11月17日训练」看不出是从计划练的；部位和计划同名就不重复标
-      (w.planName ? '<span class="hr-plan">计划 · ' + esc(w.planName) + "</span>" : "") +
-      (cat && cat !== w.planName ? '<span class="hr-cat">' + esc(cat) + "</span>" : "") + "</span>" +
-      '<small>' + fmtDate(d) + " · " + fmtDur(w.endedAt - w.startedAt) +
-      " · " + w.exercises.length + " 动作 · " + setCount(w) + " 组</small></span>" +
+      (cat ? '<span class="hr-cat">' + esc(cat) + "</span>" : "") + "</span>" +
+      // 标题已经是日期了，这里不再重复写一遍日期
+      '<small>' + fmtDur(w.endedAt - w.startedAt) +
+      " · " + w.exercises.length + " 动作 · " + setCount(w) + " 组</small>" +
+      // 计划名单独占一行：一行里挤不下，长名字会被截断；这样多长的名字都能看全
+      (w.planName ? '<small class="hr-plan">计划 · ' + esc(w.planName) + "</small>" : "") +
+      "</span>" +
       '<span class="hr-vol">' + right + "</span></button>";
   }
   function renderToday() {
@@ -880,7 +882,7 @@
     const d = new Date();
     Store.data.activeWorkout = {
       id: Store.uid(), startedAt: Date.now(),
-      name: fmtDate(d) + "训练", exercises: [],
+      name: fmtDate(d), exercises: [],
     };
     Store.save();
     openWorkoutView();
@@ -949,7 +951,7 @@
     Store.data.activeWorkout = {
       id: Store.uid(), startedAt: started,
       // 名字跟普通训练一致：补录只是录入方式，不是一种训练类型
-      name: fmtDate(d) + "训练", exercises: [], backfill: true,
+      name: fmtDate(d), exercises: [], backfill: true,
     };
     Store.save();
     closeSheet();
@@ -1258,7 +1260,7 @@
       const dur = orig ? Math.max(0, orig.endedAt - orig.startedAt) : 3600000;
       w.endedAt = w.startedAt + dur;
       delete w.editingId;
-      if (!String(w.name || "").trim()) w.name = fmtDate(new Date(w.startedAt)) + "训练";
+      if (!String(w.name || "").trim()) w.name = fmtDate(new Date(w.startedAt));
       const idx = Store.data.workouts.findIndex((x) => x.id === editId);
       if (idx >= 0) Store.data.workouts[idx] = w;
       else Store.data.workouts.push(w);
@@ -1723,7 +1725,7 @@
     Store.data.activeWorkout = {
       id: Store.uid(), startedAt: Date.now(),
       // 名字和普通训练一致（"11月17日训练"），计划名单独存，列表里用小标签标出来
-      name: fmtDate(new Date()) + "训练",
+      name: fmtDate(new Date()),
       planId: p.id, planName: p.name,     // 来源计划
       // 按计划里的组数把目标组先摆出来（done:false）：练完一组点一下圈，才算做了
       exercises: p.items.map((it) => {

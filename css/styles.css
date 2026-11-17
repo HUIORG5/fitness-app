@@ -148,7 +148,8 @@ svg{display:block;}
 .row .val{color:var(--text-2);font-size:15px;}
 /* 首页训练计划那两行：比普通行矮一点，别占掉首屏太多 */
 .row.plan-row{padding:10px 16px;}
-.row.plan-row b{display:block;font-size:16px;font-weight:600;}
+.row.plan-row b{display:block;font-size:16px;font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .row.plan-row small{display:block;font-size:12.5px;color:var(--text-2);margin-top:1px;}
 .chevron{color:var(--text-3);flex:none;}
 /* 动作库拖动把手：按住右侧 ≡ 上下拖动即可排序 */
@@ -280,15 +281,14 @@ svg{display:block;}
 .hr-date small{font-size:11px;color:var(--text-2);}
 .hr-info{flex:1;min-width:0;}
 .hr-info b{font-size:16px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.hr-info small{font-size:13px;color:var(--text-2);}
+.hr-info small{font-size:13px;color:var(--text-2);word-break:break-word;}
 /* 标题行：训练名 + 主要部位小标签 */
 .hr-line{display:flex;align-items:center;gap:6px;min-width:0;}
 .hr-line b{min-width:0;}
 .hr-cat{flex:none;font-size:11px;font-weight:600;color:var(--blue);background:var(--blue-soft);border-radius:6px;padding:1px 6px;line-height:1.6;}
-/* 训练来自哪个计划：灰底标签，和蓝色的部位标签区分开 */
-.hr-plan{flex:none;font-size:11px;font-weight:600;color:var(--text-2);background:var(--input-bg);
-  border-radius:6px;padding:1px 6px;line-height:1.6;max-width:96px;overflow:hidden;
-  text-overflow:ellipsis;white-space:nowrap;}
+/* 来自哪个计划：单独占一行，多长的计划名都能完整显示（挤在标题行里必然被截断） */
+.hr-info .hr-plan{display:block;font-size:12.5px;color:var(--text-2);margin-top:2px;
+  word-break:break-word;}
 .hr-vol{text-align:right;font-size:14px;font-weight:700;color:var(--blue);font-variant-numeric:tabular-nums;flex:none;}
 .hr-vol small{display:block;font-weight:500;color:var(--text-2);font-size:11px;}
 
