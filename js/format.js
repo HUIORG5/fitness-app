@@ -43,11 +43,15 @@
   function fmtVol(kg) { return fmtNum(U.kgToDisp(kg)) + " " + U.cur(); }
 
   /* ---------- 计算 ---------- */
-  function setVol(s) { return s.kg > 0 && s.reps > 0 ? s.kg * s.reps : 0; }
-  function setE1RM(s) { return s.kg > 0 && s.reps > 0 ? s.kg * (1 + s.reps / 30) : 0; }
+  // 一组是否「已完成」。从计划开始训练时，会先把目标组摆出来但标 done:false，
+  // 点了圆圈才算真的练了。老数据没有 done 字段，一律当已完成，不能因为加了这个字段就让历史记录归零。
+  function isDone(s) { return s.done !== false; }
+  function setVol(s) { return isDone(s) && s.kg > 0 && s.reps > 0 ? s.kg * s.reps : 0; }
+  function setE1RM(s) { return isDone(s) && s.kg > 0 && s.reps > 0 ? s.kg * (1 + s.reps / 30) : 0; }
   function exVol(e) { return e.sets.reduce((a, s) => a + setVol(s), 0); }
   function workoutVol(w) { return w.exercises.reduce((a, e) => a + exVol(e), 0); }
-  function setCount(w) { return w.exercises.reduce((a, e) => a + e.sets.length, 0); }
+  // 组数只数已完成的——否则没练的占位组也会被算进「总组数」
+  function setCount(w) { return w.exercises.reduce((a, e) => a + e.sets.filter(isDone).length, 0); }
   // 秒数的人话格式：60 → 1 分，90 → 1 分 30 秒，45 → 45 秒
   function fmtSec(sec) {
     const t = Math.round(sec || 0);
@@ -101,7 +105,7 @@
   // 这次训练里所有组的时长之和（秒）——纯有氧的日子用它代替容量
   function workoutSec(w) {
     let t = 0;
-    w.exercises.forEach((e) => e.sets.forEach((s) => { t += s.sec || 0; }));
+    w.exercises.forEach((e) => e.sets.forEach((s) => { if (isDone(s)) t += s.sec || 0; }));
     return t;
   }
   // 分钟数的人话格式：45 → 45 分，80 → 1 时 20 分
@@ -115,7 +119,7 @@
     esc: esc, pad: pad, fmtClock: fmtClock, fmtDur: fmtDur,
     fmtDate: fmtDate, WD: WD, fmtWD: fmtWD, dayKey: dayKey,
     fmtNum: fmtNum, fmtVol: fmtVol, U: U,
-    setVol: setVol, setE1RM: setE1RM, exVol: exVol,
+    isDone: isDone, setVol: setVol, setE1RM: setE1RM, exVol: exVol,
     workoutVol: workoutVol, setCount: setCount,
     fmtSec: fmtSec, typeTag: typeTag, catLine: catLine,
     unitOf: unitOf, setText: setText, repIdxOf: repIdxOf, fmtMins: fmtMins, workoutSec: workoutSec,
