@@ -13,7 +13,7 @@
   const CAT_COLORS = Icons.CAT_COLORS;
   const CAT_COLOR_FALLBACK = Icons.CAT_COLOR_FALLBACK;
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v118";
+  const APP_VERSION = "v119";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -895,7 +895,7 @@
       ? fmtMins(Math.round(e.sets.reduce((a, s) => a + (s.sec || 0), 0) / 60))
       : fmtVol(exVol(e));
     return '<div class="ex-card">' +
-      '<div class="ex-head"><span class="ex-head-gear">' + icon(gearOf(e), 22, CAT_COLORS[e.cat] || "currentColor") + '</span><span class="grow"><b>' + esc(e.name) + "</b><small>" + catLine(e.cat, e.type) + "</small></span>" +
+      '<div class="ex-head"><span class="grow"><b>' + esc(e.name) + "</b><small>" + catLine(e.cat, e.type) + "</small></span>" +
       '<span class="ex-cat">' + badge + "</span>" +
       '<button class="nav-btn" style="width:30px;height:30px;background:none;color:var(--text-3)" data-act="swap-exercise" data-i="' + i + '" aria-label="更换动作">' + icon("repeat", 17) + "</button>" +
       '<button class="nav-btn" style="width:30px;height:30px;background:none;color:var(--text-3)" data-act="del-exercise" data-i="' + i + '">' + icon("trash", 18) + "</button></div>" +
@@ -1375,12 +1375,12 @@
           const on = !!picker.sel[e.id];
           return '<button class="row' + (on ? " picked-on" : "") + '" data-act="pick-exercise" data-id="' + e.id + '">' +
             '<span class="pcheck">' + (on ? "✓" : "") + "</span>" +
-            '<span class="grow"><span class="gear-ico">' + icon(actionIconOf(e), 30) + "</span>" + esc(e.name) + "</span>" +
+            '<span class="grow">' + esc(e.name) + "</span>" +
             (e.type === "time" ? '<span class="val">' + typeTag(e.type) + "</span>" : "") + "</button>";
         }
         const n = inPlan ? planDraft.items.filter((it) => it.exerciseId === e.id).length : 0;
         return '<button class="row" data-act="pick-exercise" data-id="' + e.id + '">' +
-          '<span class="grow"><span class="gear-ico">' + icon(actionIconOf(e), 30) + "</span>" + esc(e.name) + "</span>" +
+          '<span class="grow">' + esc(e.name) + "</span>" +
           '<span class="val">' + (n ? "已加入 " + n + " 次" : typeTag(e.type)) + "</span></button>";
       }).join("") + "</div>"
       : '<div class="empty" style="padding:28px"><b>没有找到动作</b><p>点上面的「新建自定义动作」当场添加</p></div>';
@@ -1449,7 +1449,7 @@
       '<tr><td class="set-idx">' + (si + 1) + '</td><td class="set-main">' + setText(s, e.type, unitOf(e)) +
       (repIdx[si] ? '<span class="rep-idx">×' + repIdx[si] + "</span>" : "") + "</td>" +
       (isTime ? "" : '<td class="set-e1rm">' + (setE1RM(s) <= 0 ? "—" : U.fmt(setE1RM(s))) + "</td>") + "</tr>").join("");
-    return '<div class="ex-card"><div class="ex-head"><span class="ex-head-gear">' + icon(gearOf(e), 22, CAT_COLORS[e.cat] || "currentColor") + '</span><span class="grow"><b>' + esc(e.name) + "</b><small>" + e.cat + "</small></span>" +
+    return '<div class="ex-card"><div class="ex-head"><span class="grow"><b>' + esc(e.name) + "</b><small>" + e.cat + "</small></span>" +
       '<span class="ex-cat">' + badge + "</span></div>" +
       '<table class="set-table"><tr><th>组</th><th>' + (isTime ? "时长" : "重量 × 次数") + "</th>" +
       (isTime ? "" : '<th style="text-align:right">e1RM</th>') + "</tr>" +
@@ -2742,8 +2742,10 @@
     "quick-sec": (el) => { $("#in-sec").value = el.dataset.v; },
     // 点「上次」里的某一条，把重量/次数（或时长）填进当前输入框
     "apply-weight": (el) => {
+      // 只填数字，不 focus：一 focus 键盘就弹上来，把「常用重量」和「上次」都挡住了
       const inp = $("#in-kg");
-      if (inp) { inp.value = U.fmt(parseFloat(el.dataset.kg) || 0); inp.focus(); }
+      if (inp) inp.value = U.fmt(parseFloat(el.dataset.kg) || 0);
+      toast("重量已设为 " + U.fmt(parseFloat(el.dataset.kg) || 0) + " " + U.cur());
     },
     "apply-last": (el) => {
       const w = Store.data.activeWorkout;
