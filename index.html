@@ -233,8 +233,29 @@
     </div>
   </div>
 
+  <!-- ======== 更新结果（下拉更新后弹出） ======== -->
+  <div class="alert-backdrop" id="upd-backdrop">
+    <div class="alert upd-alert">
+      <div class="upd-head">
+        <span class="upd-ico" id="upd-ico">✓</span>
+        <div class="upd-text">
+          <div class="upd-title" id="upd-title"></div>
+          <div class="upd-sub" id="upd-sub"></div>
+        </div>
+      </div>
+      <ul class="upd-list" id="upd-list"></ul>
+      <button class="alert-btn primary upd-ok" id="upd-ok">知道了</button>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
   <input type="file" id="avatar-file" accept="image/*" style="display:none">
+</div>
+
+<!-- 下拉更新提示：在页面顶部往下拉时滑出 -->
+<div id="pull-hint" aria-hidden="true">
+  <span class="ph-ico">↓</span>
+  <span class="ph-text">下拉更新版本</span>
 </div>
 
 <script src="js/storage.js"></script>
@@ -248,5 +269,7 @@
 <script src="js/share.js"></script>
 <script src="js/calendar.js"></script>
 <script src="js/app.js"></script>
+<script src="js/changelog.js"></script>
+<script src="js/update.js"></script>
 </body>
 </html>

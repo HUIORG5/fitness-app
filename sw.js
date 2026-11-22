@@ -1,5 +1,5 @@
 /* 练了吗 · Service Worker：离线可用 */
-const CACHE = "tieji-v125";
+const CACHE = "tieji-v129";
 const ASSETS = [
   "./",
   "./index.html",
@@ -15,6 +15,8 @@ const ASSETS = [
   "./js/icons.js",
   "./js/share.js",
   "./js/calendar.js",
+  "./js/changelog.js",
+  "./js/update.js",
   "./js/app.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",

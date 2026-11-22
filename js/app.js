@@ -13,7 +13,7 @@
   const CAT_COLORS = Icons.CAT_COLORS;
   const CAT_COLOR_FALLBACK = Icons.CAT_COLOR_FALLBACK;
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v125";
+  const APP_VERSION = "v129";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -2648,12 +2648,14 @@
     const sw = reg.waiting || reg.installing;
     if (sw) {
       let tookOver = false;
-      const onCtrl = () => { tookOver = true; };
+      // 自动重载已经取消，这里得自己刷新；顺手记下旧版本，重载后弹框才有「从 → 到」
+      const onCtrl = () => { tookOver = true; location.reload(); };
       navigator.serviceWorker.addEventListener("controllerchange", onCtrl);
       if (sw.state === "installed") sw.postMessage({ type: "SKIP_WAITING" });
       else sw.addEventListener("statechange", function onSc() {
         if (sw.state === "installed") { sw.removeEventListener("statechange", onSc); sw.postMessage({ type: "SKIP_WAITING" }); }
       });
+      try { sessionStorage.setItem("tieji.updateFrom", APP_VERSION); } catch (e) {}
       toast("发现新版本，正在应用…");
       // 兜底：个别旧版 iOS 不支持给 SW 发消息，2.5 秒还没接管就提示手动重启
       setTimeout(() => {
@@ -3103,14 +3105,14 @@
     bindEvents();
     switchTab("today");
     if ("serviceWorker" in navigator) {
-      // 新版本安装好并接管后自动刷新一次，省掉“刷新两次才能更新”的老毛病。
-      // 只在「原本就有 SW」时重载，首次安装不重载，避免多余刷新。
+      // 新版本就绪后**不再自动重载**：那样页面会突然闪一下，用户既不知道发生了什么，
+      // 也不知道到底有没有换成新版。改成提示一次，由用户自己下拉更新（js/update.js），
+      // 更新完会弹框说明「从哪一版到哪一版、改了什么」。
       const hadController = !!navigator.serviceWorker.controller;
-      let reloading = false;
       navigator.serviceWorker.addEventListener("controllerchange", () => {
-        if (!hadController || reloading) return;
-        reloading = true;
-        location.reload();
+        if (!hadController) return;
+        window.__updateReady = true;
+        setTimeout(() => toast("发现新版本，在页面顶部下拉即可更新"), 1600);
       });
       navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});
     }
