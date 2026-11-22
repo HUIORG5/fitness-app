@@ -15,6 +15,18 @@
   const setText = F.setText, setE1RM = F.setE1RM;
   const exVol = F.exVol, workoutVol = F.workoutVol, setCount = F.setCount, unitOf = F.unitOf;
 
+  // 分享图用的配色：始终取浅色版，且跟随用户选的配色（发出去要和 App 看起来是一家的）
+  const PALETTES = {
+    classic: { bg: "#f2f2f7", card: "#ffffff", ink: "#1c1c1e", sub: "#8e8e93", line: "rgba(60,60,67,.10)", accent: "#007aff" },
+    ink: { bg: "#f5f2ec", card: "#ffffff", ink: "#191815", sub: "#8a8578", line: "rgba(25,24,21,.10)", accent: "#a3764a" },
+    slate: { bg: "#f2f4f6", card: "#ffffff", ink: "#0f1720", sub: "#7d8a96", line: "rgba(15,23,32,.10)", accent: "#1f3a5f" },
+    clay: { bg: "#f5f5f6", card: "#ffffff", ink: "#121214", sub: "#82828a", line: "rgba(18,18,20,.10)", accent: "#b35c3a" },
+  };
+  function palette() {
+    const st = (window.Store && window.Store.data && window.Store.data.settings) || {};
+    return PALETTES[st.palette] || PALETTES.classic;
+  }
+
   // 分享图里的组文本：力量动作省掉「次」字，三列才挤得下；时长照旧
   function shareSetText(s, type, unit) {
     if (type === "time") return setText(s, type, unit);
@@ -33,7 +45,8 @@
   function drawShareCard(w, qr) {
     const W = 750, PAD = 32, CW = W - PAD * 2;
     const FONT = '-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif';
-    const INK = "#1c1c1e", SUB = "#8e8e93", LINE = "rgba(60,60,67,.10)", BLUE = "#007aff";
+    const P = palette();
+    const INK = P.ink, SUB = P.sub, LINE = P.line, BLUE = P.accent, PAPER = P.card;
     const cv = document.createElement("canvas");
     cv.width = W; cv.height = 5000;
     const c = cv.getContext("2d");
@@ -48,10 +61,10 @@
       c.arcTo(x, y, x + iw, y, r);
       c.closePath();
     }
-    function card(x, y, iw, ih) { c.fillStyle = "#fff"; rr(x, y, iw, ih, 20); c.fill(); }
+    function card(x, y, iw, ih) { c.fillStyle = PAPER; rr(x, y, iw, ih, 20); c.fill(); }
 
     // 背景
-    c.fillStyle = "#f2f2f7"; c.fillRect(0, 0, W, 5000);
+    c.fillStyle = P.bg; c.fillRect(0, 0, W, 5000);
 
     let y = 28;
     // 顶部品牌：一行，右侧补一句说明，不再单独占一行

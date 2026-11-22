@@ -13,7 +13,7 @@
   const CAT_COLORS = Icons.CAT_COLORS;
   const CAT_COLOR_FALLBACK = Icons.CAT_COLOR_FALLBACK;
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v129";
+  const APP_VERSION = "v131";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -205,9 +205,12 @@
 
   /* ---------- 主题 ---------- */
   function applyTheme() {
-    const t = Store.data.settings.theme;
+    const st = Store.data.settings;
+    const t = st.theme;
     const dark = t === "dark" || (t === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     document.documentElement.dataset.theme = dark ? "dark" : "light";
+    // 配色独立于明暗：同一套配色在浅色/深色下各有一套变量
+    document.documentElement.dataset.palette = st.palette || "classic";
   }
 
   /* ---------- 弹层 ---------- */
@@ -2155,11 +2158,28 @@
       '<span class="stepper"><button data-noblur data-act="dec-defreps">−</button>' +
       '<input id="in-defreps" type="number" inputmode="numeric" value="' + (s.defaultReps || 10) + '">' +
       '<button data-noblur data-act="inc-defreps">+</button></span></div>' +
-      '<div class="row"><span class="grow">主题</span><span class="seg" style="width:186px">' +
+      "</div>";
+
+    // 外观：配色（四套色卡）+ 明暗，两者独立
+    const pal = s.palette || "classic";
+    const pals = [
+      ["classic", "经典", "#f2f2f7", "#007aff"],
+      ["ink", "墨黑", "#f5f2ec", "#a3764a"],
+      ["slate", "石墨", "#f2f4f6", "#1f3a5f"],
+      ["clay", "赤陶", "#f5f5f6", "#b35c3a"],
+    ];
+    html += '<div class="section-title">外观</div>' +
+      '<div class="list"><div class="palette-wrap"><div class="palette-row">' +
+      pals.map((it) =>
+        '<button class="palette-item' + (pal === it[0] ? " active" : "") + '" data-act="set-palette" data-v="' + it[0] + '">' +
+        '<span class="pchip" style="--pb:' + it[2] + ';--pa:' + it[3] + '">' +
+        '<i class="pchip-card"></i><i class="pchip-dot"></i></span>' +
+        '<span class="palette-name">' + it[1] + "</span></button>").join("") +
+      "</div></div></div>" +
+      '<div class="list"><div class="row"><span class="grow">明暗</span><span class="seg" style="width:186px">' +
       '<button class="' + (s.theme === "system" ? "active" : "") + '" data-act="set-theme" data-v="system">系统</button>' +
       '<button class="' + (s.theme === "light" ? "active" : "") + '" data-act="set-theme" data-v="light">浅色</button>' +
-      '<button class="' + (s.theme === "dark" ? "active" : "") + '" data-act="set-theme" data-v="dark">深色</button></span></div>' +
-      "</div>";
+      '<button class="' + (s.theme === "dark" ? "active" : "") + '" data-act="set-theme" data-v="dark">深色</button></span></div></div>';
 
     // 数据
     html += '<div class="section-title">数据</div><div class="list">' +
@@ -2872,6 +2892,7 @@
     "save-custom-exercise": saveCustomExercise,
     "set-unit": (el) => { Store.data.settings.unit = el.dataset.v; saveSettings(); rerenderMe(); renderAll(); },
     "set-theme": (el) => { Store.data.settings.theme = el.dataset.v; saveSettings(); applyTheme(); rerenderMe(); renderAll(); },
+    "set-palette": (el) => { Store.data.settings.palette = el.dataset.v; saveSettings(); applyTheme(); rerenderMe(); renderAll(); },
     "export-data": exportData,
     "import-data": importData,
     "clear-data": clearData,

@@ -9,6 +9,8 @@
   --sep:rgba(60,60,67,.12);
   --blue:#007aff;
   --blue-soft:rgba(0,122,255,.12);
+  /* 成绩色：容量、PR 这类「练出来的数字」用它，跟按钮主色分开 */
+  --accent:#007aff;
   --green:#34c759;
   --red:#ff3b30;
   --orange:#ff9500;
@@ -28,10 +30,144 @@
   --sep:rgba(84,84,88,.4);
   --blue:#0a84ff;
   --blue-soft:rgba(10,132,255,.18);
+  --accent:#0a84ff;
   --tabbar:rgba(20,20,20,.85);
   --shadow:none;
   --sheet-bg:#1c1c1e;
   --input-bg:rgba(118,118,128,.24);
+}
+
+/* ---------- 可选配色 ----------
+   主题 = 配色（palette）× 明暗（theme）。这里只重定义变量，
+   所有组件靠 var(--blue)/var(--bg) 自动跟随，不用改具体样式。
+   --blue 是「主色」（按钮、选中态），--accent 是「成绩色」（容量、PR 这些数字）。 */
+
+/* A 墨黑暖白：暖米白底 + 墨黑主色 + 焦糖成绩色 */
+[data-palette="ink"]{
+  --bg:#f5f2ec;
+  --card:#ffffff;
+  --card-2:#faf7f2;
+  --text:#191815;
+  --text-2:#8a8578;
+  --text-3:#cbc6ba;
+  --sep:rgba(25,24,21,.12);
+  --blue:#1c1a17;
+  --blue-soft:rgba(28,26,23,.07);
+  --accent:#a3764a;
+  --green:#5f7a52;
+  --red:#b4432f;
+  --orange:#b98243;
+  --purple:#7a6a8f;
+  --tabbar:rgba(245,242,236,.9);
+  --shadow:0 1px 2px rgba(25,24,21,.06);
+  --sheet-bg:#ffffff;
+  --input-bg:rgba(25,24,21,.06);
+}
+
+/* B 石墨蓝：冷灰底 + 海军蓝主色，最接近「运动科技」那一挂 */
+[data-palette="slate"]{
+  --bg:#f2f4f6;
+  --card:#ffffff;
+  --card-2:#f7f9fb;
+  --text:#0f1720;
+  --text-2:#7d8a96;
+  --text-3:#c3ccd4;
+  --sep:rgba(15,23,32,.12);
+  --blue:#1f3a5f;
+  --blue-soft:rgba(31,58,95,.1);
+  --accent:#1f3a5f;
+  --green:#3f7d6d;
+  --red:#b5473f;
+  --orange:#b98a4a;
+  --purple:#5f6a9c;
+  --tabbar:rgba(242,244,246,.9);
+  --shadow:0 1px 2px rgba(15,23,32,.06);
+  --sheet-bg:#ffffff;
+  --input-bg:rgba(15,23,32,.06);
+}
+
+/* C 灰阶赤陶：几乎无彩，赤陶只给成绩色 */
+[data-palette="clay"]{
+  --bg:#f5f5f6;
+  --card:#ffffff;
+  --card-2:#fafafa;
+  --text:#121214;
+  --text-2:#82828a;
+  --text-3:#c8c8cd;
+  --sep:rgba(18,18,20,.12);
+  --blue:#1b1b1f;
+  --blue-soft:rgba(27,27,31,.07);
+  --accent:#b35c3a;
+  --green:#4f7a5c;
+  --red:#b3402e;
+  --orange:#b0763c;
+  --purple:#8a6a72;
+  --tabbar:rgba(245,245,246,.9);
+  --shadow:0 1px 2px rgba(18,18,20,.06);
+  --sheet-bg:#ffffff;
+  --input-bg:rgba(18,18,20,.06);
+}
+
+/* 深色版：主色在深底上要够亮，所以按钮用暖色 / 中明度色，不再是纯黑 */
+[data-palette="ink"][data-theme="dark"]{
+  --bg:#131211;
+  --card:#1e1c1a;
+  --card-2:#26231f;
+  --text:#f2efe7;
+  --text-2:#9a9488;
+  --text-3:#4a463f;
+  --sep:rgba(242,239,231,.14);
+  --blue:#a07b4d;
+  --blue-soft:rgba(160,123,77,.18);
+  --accent:#d1a878;
+  --green:#7f9a6c;
+  --red:#d4664f;
+  --orange:#c69a63;
+  --purple:#9a8bb0;
+  --tabbar:rgba(19,18,17,.9);
+  --shadow:none;
+  --sheet-bg:#1e1c1a;
+  --input-bg:rgba(242,239,231,.1);
+}
+[data-palette="slate"][data-theme="dark"]{
+  --bg:#0c1116;
+  --card:#151c24;
+  --card-2:#1c242e;
+  --text:#eaf0f6;
+  --text-2:#8b98a6;
+  --text-3:#3d4a58;
+  --sep:rgba(234,240,246,.14);
+  --blue:#52749e;
+  --blue-soft:rgba(82,116,158,.22);
+  --accent:#8fb2d6;
+  --green:#4f9c88;
+  --red:#d1655c;
+  --orange:#c79a5c;
+  --purple:#7f89bd;
+  --tabbar:rgba(12,17,22,.9);
+  --shadow:none;
+  --sheet-bg:#151c24;
+  --input-bg:rgba(234,240,246,.1);
+}
+[data-palette="clay"][data-theme="dark"]{
+  --bg:#0f0f11;
+  --card:#1a1a1d;
+  --card-2:#232327;
+  --text:#f0f0f2;
+  --text-2:#8b8b93;
+  --text-3:#44444b;
+  --sep:rgba(240,240,242,.13);
+  --blue:#ab6247;
+  --blue-soft:rgba(171,98,71,.2);
+  --accent:#d98a63;
+  --green:#6d9179;
+  --red:#cc5b45;
+  --orange:#cf8f55;
+  --purple:#a0818a;
+  --tabbar:rgba(15,15,17,.9);
+  --shadow:none;
+  --sheet-bg:#1a1a1d;
+  --input-bg:rgba(240,240,242,.09);
 }
 
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -191,8 +327,8 @@ svg{display:block;}
 /* ---------- 今天页 ---------- */
 .start-card{
   display:flex;align-items:center;gap:14px;width:100%;
-  background:linear-gradient(135deg,#0a84ff,#5e5ce6);
-  border-radius:22px;padding:20px;color:#fff;box-shadow:0 10px 28px rgba(10,132,255,.32);
+  background:var(--blue);
+  border-radius:18px;padding:20px;color:#fff;box-shadow:var(--shadow);
   margin-top:6px;transition:transform .12s;
 }
 .start-card:active{transform:scale(.98);}
@@ -319,7 +455,7 @@ svg{display:block;}
 /* 计划还能点进去看一眼：用蓝色提示可点，整行其余地方仍然是「打开训练详情」 */
 .hr-info .hr-plan.tappable{color:var(--blue);}
 .hr-info .hr-plan.tappable:active{opacity:.5;}
-.hr-vol{text-align:right;font-size:14px;font-weight:700;color:var(--blue);font-variant-numeric:tabular-nums;flex:none;}
+.hr-vol{text-align:right;font-size:14px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;flex:none;}
 .hr-vol small{display:block;font-weight:500;color:var(--text-2);font-size:11px;}
 
 /* ---------- 搜索与分类 chips ---------- */
@@ -558,6 +694,21 @@ svg{display:block;}
 .alert-btn:last-child{border-right:none;}
 .alert-btn.primary{color:var(--blue);font-weight:700;}
 .alert-btn.danger{color:var(--red);font-weight:700;}
+
+/* ---------- 配色选择 ---------- */
+.palette-wrap{padding:16px 10px 14px;}
+.palette-row{display:flex;gap:6px;}
+.palette-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;padding:0;min-width:0;}
+/* 色卡：底色 + 一张白色卡片 + 一个主色点，一眼能看出这套配色的三层关系 */
+.pchip{position:relative;display:block;width:46px;height:46px;border-radius:14px;background:var(--pb);
+  box-shadow:inset 0 0 0 .5px rgba(0,0,0,.1);transition:transform .12s,box-shadow .15s;}
+.palette-item:active .pchip{transform:scale(.93);}
+.pchip-card{position:absolute;left:9px;top:9px;width:21px;height:21px;border-radius:7px;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.14);}
+.pchip-dot{position:absolute;right:7px;bottom:7px;width:11px;height:11px;border-radius:50%;background:var(--pa);}
+.palette-item.active .pchip{box-shadow:inset 0 0 0 .5px rgba(0,0,0,.1),0 0 0 2px var(--blue);}
+.palette-name{font-size:12px;font-weight:600;color:var(--text-2);}
+.palette-item.active .palette-name{color:var(--text);}
 
 /* ---------- 下拉更新 ----------
    提示条固定在顶部安全区下方，由 update.js 控制透明度。
