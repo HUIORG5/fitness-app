@@ -326,6 +326,78 @@ svg{display:block;}
 .text-btn{font-size:17px;font-weight:600;padding:6px 2px;}
 .text-btn.primary{color:var(--blue);}
 
+/* ---------- 小宠物「角角」 ----------
+   住在今天页大标题右侧。纯 SVG，颜色走自己的变量（不完全跟主题）：
+   墨黑主题下如果宠物也用近黑，会糊成一团，所以给它一套独立的暖色 + 反色描边。 */
+.pet{
+  --pet-body:#EFE8DA;
+  --pet-horn:#C6BBA4;
+  --pet-line:#1C1A17;
+  --pet-blush:#DB9E93;
+  --horn:1;
+  flex:none;width:54px;height:60px;position:relative;cursor:pointer;
+  align-self:flex-end;margin:0 auto -4px 12px;-webkit-tap-highlight-color:transparent;
+}
+[data-theme="dark"] .pet{
+  --pet-body:#3B342A;
+  --pet-horn:#6E6353;
+  --pet-line:#F3F0E8;
+  --pet-blush:#8E6058;
+}
+.pet > svg{width:100%;height:100%;display:block;overflow:visible;
+  animation:petBreath 3.8s ease-in-out infinite;transform-origin:50% 100%;}
+.pet.paused > svg{animation:none;}
+.pet-body{fill:var(--pet-body);stroke:var(--pet-line);stroke-width:2.4;}
+.pet-horn{fill:var(--pet-horn);stroke:var(--pet-line);stroke-width:2.3;stroke-linejoin:round;}
+.pet-line{fill:none;stroke:var(--pet-line);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+.pet-blush{fill:var(--pet-blush);opacity:.5;}
+.pet-ink{fill:var(--pet-line);}
+.pet .eyes{transform-box:fill-box;transform-origin:center;animation:petBlink 5.6s infinite;}
+.pet .eyes-happy{display:none;}
+.pet.happy .eyes{display:none;}
+.pet.happy .eyes-happy{display:block;}
+
+/* 角的高度跟累计训练次数走：根部固定在身体里，只往上拉长 */
+.pet .horns{transform-box:view-box;transform-origin:44px 50px;transform:scale(1,var(--horn));}
+/* 最长也只放到 1.06：再长就从「犄角」变成兔耳朵了 */
+.pet[data-stage="0"]{--horn:.68;}
+.pet[data-stage="1"]{--horn:.8;}
+.pet[data-stage="2"]{--horn:.94;}
+.pet[data-stage="3"]{--horn:1.06;}
+
+@keyframes petBreath{
+  0%,100%{transform:translateY(0) scale(1,1);}
+  50%{transform:translateY(-1.4px) scale(1.016,.984);}
+}
+@keyframes petBlink{
+  0%,90%,100%{transform:scaleY(1);}
+  94%{transform:scaleY(.08);}
+  97%{transform:scaleY(1);}
+}
+.pet.happy > svg{animation:petHop .62s cubic-bezier(.3,1.4,.5,1);}
+@keyframes petHop{
+  0%{transform:translateY(0);}
+  35%{transform:translateY(-10px) scale(1.04,1.02);}
+  68%{transform:translateY(0) scale(.97,1.03);}
+  100%{transform:translateY(0);}
+}
+.pet.wobble .horns{animation:petWobble .72s ease;}
+@keyframes petWobble{
+  0%,100%{transform:rotate(0) scale(1,var(--horn));}
+  30%{transform:rotate(-5deg) scale(1,var(--horn));}
+  66%{transform:rotate(4deg) scale(1,var(--horn));}
+}
+/* 被点之后飘一颗心 */
+.pet-heart{position:absolute;left:50%;top:0;width:13px;height:13px;pointer-events:none;
+  animation:petHeart .95s ease-out forwards;}
+.pet-heart svg{width:100%;height:100%;display:block;animation:none;}
+.pet-heart path{fill:#E0564A;}
+@keyframes petHeart{
+  0%{opacity:0;transform:translate(-50%,4px) scale(.5);}
+  25%{opacity:1;}
+  100%{opacity:0;transform:translate(-50%,-28px) scale(1.1);}
+}
+
 /* ---------- 今天页 ---------- */
 .start-card{
   display:flex;align-items:center;gap:14px;width:100%;
