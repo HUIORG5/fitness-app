@@ -1,13 +1,25 @@
 /* 分享长图：把一次训练画成一张带二维码的图片（纯 canvas 绘制）。
    从 app.js 切出来的原因：这段 140 行全是绘制代码，只进不出、极少改动，
    混在主文件里翻起来累。调用方传一条训练记录进来，拿回 dataURL。
-   依赖 window.Format（格式化函数）和 window.Store（取单位设置）。 */
+   依赖 window.Format（格式化函数）和 window.Store（取单位设置）。
+
+   版式原则：一屏尽量多放内容。
+   - 汇总卡从 2×2 改成一行四格（高度 150 → 88）
+   - 每组数据从「一行一条」改成三列网格，e1RM 贴在格子右侧，不再让中间空一大块
+   - 表头去掉：数字就是数字，标签只在必要处出现 */
 (function () {
   "use strict";
   const F = window.Format;
   const fmtVol = F.fmtVol, fmtDur = F.fmtDur, fmtDate = F.fmtDate, fmtWD = F.fmtWD;
-  const fmtClock = F.fmtClock, U = F.U, setText = F.setText, setE1RM = F.setE1RM;
+  const fmtClock = F.fmtClock, fmtMins = F.fmtMins, U = F.U;
+  const setText = F.setText, setE1RM = F.setE1RM;
   const exVol = F.exVol, workoutVol = F.workoutVol, setCount = F.setCount, unitOf = F.unitOf;
+
+  // 分享图里的组文本：力量动作省掉「次」字，三列才挤得下；时长照旧
+  function shareSetText(s, type, unit) {
+    if (type === "time") return setText(s, type, unit);
+    return s.kg > 0 ? U.fmt(s.kg) + " " + U.cur() + " × " + s.reps : "徒手 × " + s.reps;
+  }
 
   function buildShareCard(w) {
     return new Promise((resolve, reject) => {
@@ -19,9 +31,9 @@
   }
 
   function drawShareCard(w, qr) {
-    const W = 750, PAD = 36, CW = W - PAD * 2;
+    const W = 750, PAD = 32, CW = W - PAD * 2;
     const FONT = '-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif';
-    const INK = "#1c1c1e", SUB = "#8e8e93", LINE = "rgba(60,60,67,.12)", BLUE = "#007aff";
+    const INK = "#1c1c1e", SUB = "#8e8e93", LINE = "rgba(60,60,67,.10)", BLUE = "#007aff";
     const cv = document.createElement("canvas");
     cv.width = W; cv.height = 5000;
     const c = cv.getContext("2d");
@@ -41,25 +53,28 @@
     // 背景
     c.fillStyle = "#f2f2f7"; c.fillRect(0, 0, W, 5000);
 
-    let y = 34;
-    // 顶部品牌
-    F(30, 800); c.fillStyle = INK; c.textAlign = "left";
-    c.fillText("练了吗", PAD, y + 26);
+    let y = 28;
+    // 顶部品牌：一行，右侧补一句说明，不再单独占一行
+    F(25, 800); c.fillStyle = INK; c.textAlign = "left";
+    c.fillText("练了吗", PAD, y + 22);
+    const brandW = c.measureText("练了吗").width;
+    F(13); c.fillStyle = SUB;
+    c.fillText("记录每一组的进步", PAD + brandW + 10, y + 22);
+    y += 46;
+
+    // 标题 + 副行（副行不再重复日期，只写星期和时长）
+    F(31, 800); c.fillStyle = INK; c.textAlign = "left";
+    c.fillText(w.name || "训练", PAD, y + 28);
+    y += 42;
     F(15); c.fillStyle = SUB;
-    c.fillText("记录每一组的进步", PAD + 108, y + 26);
-    y += 62;
-
-    // 标题 + 日期
-    F(34, 800); c.fillStyle = INK;
-    c.fillText(w.name || "训练", PAD, y + 30);
-    y += 44;
-    F(17); c.fillStyle = SUB;
     const d = new Date(w.startedAt);
-    c.fillText(fmtDate(d) + " " + fmtWD(d) + " · " + fmtDur(w.endedAt - w.startedAt), PAD, y + 16);
-    y += 40;
+    const subline = [w.planName ? "计划 · " + w.planName : "",
+      fmtWD(d), fmtDur(w.endedAt - w.startedAt)].filter(Boolean).join(" · ");
+    c.fillText(subline, PAD, y + 14);
+    y += 32;
 
-    // 汇总卡（2x2）
-    const sumH = 150;
+    // 汇总卡：一行四格
+    const sumH = 86;
     card(PAD, y, CW, sumH);
     const items = [
       [fmtVol(workoutVol(w)), "总容量"],
@@ -67,70 +82,93 @@
       [setCount(w) + "", "总组数"],
       [fmtClock(w.endedAt - w.startedAt), "时长"],
     ];
+    const qw = CW / 4;
     items.forEach((it, i) => {
-      const col = i % 2, row = Math.floor(i / 2);
-      const cx = PAD + 24 + col * (CW / 2), cy = y + 26 + row * 66;
-      F(26, 800); c.fillStyle = INK; c.textAlign = "left";
-      c.fillText(it[0], cx, cy + 20);
-      F(14); c.fillStyle = SUB;
-      c.fillText(it[1], cx, cy + 42);
-      // 分隔线
-      c.strokeStyle = LINE; c.lineWidth = 1;
-      if (col === 0) { c.beginPath(); c.moveTo(PAD + CW / 2, cy - 6); c.lineTo(PAD + CW / 2, cy + 48); c.stroke(); }
-      if (row === 0) { c.beginPath(); c.moveTo(PAD + 16, y + sumH / 2 + 4); c.lineTo(PAD + CW - 16, y + sumH / 2 + 4); c.stroke(); }
+      const cx = PAD + 16 + i * qw;
+      F(22, 800); c.fillStyle = INK; c.textAlign = "left";
+      c.fillText(it[0], cx, y + 40);
+      F(12); c.fillStyle = SUB;
+      c.fillText(it[1], cx, y + 62);
+      if (i > 0) {
+        c.strokeStyle = LINE; c.lineWidth = 1;
+        c.beginPath(); c.moveTo(PAD + i * qw, y + 16); c.lineTo(PAD + i * qw, y + sumH - 16); c.stroke();
+      }
     });
-    y += sumH + 18;
+    y += sumH + 14;
 
-    // 每个动作一张卡
+    // 每个动作一张卡：头部一行 + 组数据三列网格
+    const COLS = 3, cellW = (CW - 36) / COLS, cellH = 30, padX = 18;
     w.exercises.forEach((e) => {
-      const rowH = 40, headH = 58;
-      const h = headH + 26 + e.sets.length * rowH + 12;
+      const rows = Math.max(1, Math.ceil(e.sets.length / COLS));
+      const headH = 40;
+      const h = headH + rows * cellH + 10;
       card(PAD, y, CW, h);
-      // 动作名 + 分类
-      F(21, 700); c.fillStyle = INK; c.textAlign = "left";
-      c.fillText(e.name, PAD + 20, y + 36);
-      F(14); c.fillStyle = SUB;
-      c.fillText(e.cat, PAD + 20 + c.measureText(e.name).width + 12, y + 36);
-      // 右侧容量
-      F(15, 600); c.fillStyle = BLUE; c.textAlign = "right";
-      c.fillText(fmtVol(exVol(e)), PAD + CW - 20, y + 36);
-      // 表头
-      c.textAlign = "left";
-      F(13); c.fillStyle = SUB;
-      c.fillText("组", PAD + 20, y + headH + 12);
-      c.fillText(e.type === "time" ? "时长" : "重量 × 次数", PAD + 70, y + headH + 12);
-      c.textAlign = "right";
-      c.fillText("e1RM", PAD + CW - 20, y + headH + 12);
-      // 行
+
+      // 右侧数值：力量看容量，有氧看总时长，两个都是 0（徒手）就不显示，
+      // 否则有氧和自重动作会挂一个没意义的「0 kg」
+      const secs = e.sets.reduce((a, x) => a + (x.sec || 0), 0);
+      const volTxt = e.type === "time"
+        ? (secs ? fmtMins(Math.round(secs / 60)) : "")
+        : (exVol(e) > 0 ? fmtVol(exVol(e)) : "");
+      F(14, 600);
+      const volW = volTxt ? c.measureText(volTxt).width + 16 : 0;
+      F(19, 700);
+      let shown = e.name;
+      const nameMax = CW - padX * 2 - volW - 64;      // 64 留给分类的两三个字
+      if (c.measureText(shown).width > nameMax) {
+        while (shown.length > 2 && c.measureText(shown + "…").width > nameMax) shown = shown.slice(0, -1);
+        shown += "…";
+        // 名字太长就不要分类了，否则挤在一起
+        c.fillStyle = INK; c.textAlign = "left";
+        c.fillText(shown, PAD + padX, y + 26);
+      } else {
+        c.fillStyle = INK; c.textAlign = "left";
+        c.fillText(shown, PAD + padX, y + 26);
+        const nw = c.measureText(shown).width;
+        F(12); c.fillStyle = SUB;
+        c.fillText(e.cat, PAD + padX + nw + 8, y + 26);
+      }
+      if (volTxt) {
+        F(14, 600); c.fillStyle = BLUE; c.textAlign = "right";
+        c.fillText(volTxt, PAD + CW - padX, y + 26);
+      }
+
+      // 组数据：三列网格，同一行从左到右
       e.sets.forEach((s2, si) => {
-        const ry = y + headH + 26 + si * rowH + 22;
-        c.textAlign = "left"; F(14); c.fillStyle = SUB;
-        c.fillText(String(si + 1), PAD + 20, ry);
-        F(16); c.fillStyle = INK;
-        c.fillText(setText(s2, e.type, unitOf(e)), PAD + 70, ry);
-        c.textAlign = "right"; F(15); c.fillStyle = SUB;
-        const e1 = e.type === "time" || setE1RM(s2) <= 0 ? "—" : U.fmt(setE1RM(s2));
-        c.fillText(e1, PAD + CW - 20, ry);
-        if (si < e.sets.length - 1) {
-          c.strokeStyle = LINE; c.lineWidth = 1;
-          c.beginPath(); c.moveTo(PAD + 16, ry + 14); c.lineTo(PAD + CW - 16, ry + 14); c.stroke();
+        const col = si % COLS, row = Math.floor(si / COLS);
+        const cx = PAD + padX + col * cellW;
+        const ry = y + headH + row * cellH + 20;
+        c.textAlign = "left";
+        F(12); c.fillStyle = SUB;
+        c.fillText(String(si + 1), cx, ry);
+        F(15); c.fillStyle = INK;
+        const txt = shareSetText(s2, e.type, unitOf(e));
+        c.fillText(txt, cx + 20, ry);
+        const tw = c.measureText(txt).width;
+        // e1RM 紧跟在数据后面（不是贴到格子右边缘）：贴右边会离下一格的组号太近，
+        // 看起来像「31.7 是第 2 组的 e1RM」
+        const e1 = e.type === "time" || setE1RM(s2) <= 0 ? "" : U.fmt(setE1RM(s2));
+        if (e1) {
+          F(11); c.fillStyle = "#b4b4b9"; c.textAlign = "left";
+          c.fillText(e1, cx + 20 + tw + 8, ry);
         }
       });
-      y += h + 14;
+      y += h + 10;
     });
 
-    // 底部二维码区
-    const footH = 200;
-    card(PAD, y, CW, footH);
-    const qs = 132, qx = PAD + 26, qy = y + (footH - qs) / 2;
+    // 底部二维码区：压成一条，别占掉一整块
+    const footH = 122;
+    card(PAD, y + 4, CW, footH);
+    const qs = 90, qx = PAD + padX, qy = y + 4 + (footH - qs) / 2;
     c.drawImage(qr, qx, qy, qs, qs);
-    F(19, 700); c.fillStyle = INK; c.textAlign = "left";
-    c.fillText("扫码一起练", PAD + 26 + qs + 22, qy + 44);
-    F(14); c.fillStyle = SUB;
-    c.fillText("记录每一组的进步", PAD + 26 + qs + 22, qy + 72);
-    F(13); c.fillStyle = BLUE;
-    c.fillText("huiorg5.github.io/fitness-app", PAD + 26 + qs + 22, qy + 98);
-    y += footH + 30;
+    const tx = qx + qs + 18;
+    F(18, 700); c.fillStyle = INK; c.textAlign = "left";
+    c.fillText("扫码一起练", tx, qy + 32);
+    F(13); c.fillStyle = SUB;
+    c.fillText("记录每一组的进步", tx, qy + 56);
+    F(12); c.fillStyle = BLUE;
+    c.fillText("huiorg5.github.io/fitness-app", tx, qy + 78);
+    y += footH + 28;
 
     // 裁剪到实际高度
     const out = document.createElement("canvas");

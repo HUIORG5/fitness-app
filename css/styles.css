@@ -670,8 +670,9 @@ svg{display:block;}
 .share-title{font-size:17px;font-weight:700}
 .share-bar .nav-btn{color:#fff;background:rgba(255,255,255,.14);border-radius:50%;width:32px;height:32px}
 .share-body{flex:1;overflow-y:auto;display:flex;flex-direction:column;align-items:center;padding:6px 16px calc(env(safe-area-inset-bottom) + 24px)}
-.share-body img{width:100%;max-width:420px;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
-.share-tip{color:rgba(255,255,255,.6);font-size:13px;margin-top:14px;text-align:center}
+.share-body img{width:100%;max-width:420px;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.5);
+  margin-top:auto;}
+.share-tip{color:rgba(255,255,255,.6);font-size:13px;margin-top:14px;margin-bottom:auto;text-align:center}
 
 /* ---------- 训练计划 ---------- */
 .pd-idx{flex:none;width:24px;height:24px;border-radius:50%;background:var(--blue-soft);color:var(--blue);
