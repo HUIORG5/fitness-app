@@ -13,7 +13,7 @@
   const CAT_COLORS = Icons.CAT_COLORS;
   const CAT_COLOR_FALLBACK = Icons.CAT_COLOR_FALLBACK;
   // 与 sw.js 的 CACHE 版本保持一致，显示在设置页底部，便于确认手机跑的是哪一版
-  const APP_VERSION = "v141";
+  const APP_VERSION = "v142";
   window.APP_VERSION_HINT = APP_VERSION;   // 错误上报要用（telemetry.js 在 IIFE 外）
   // 未上传头像时使用的默认头像
   const DEFAULT_AVATAR = "icons/avatar-default.png";
@@ -3127,7 +3127,7 @@
     injectIcons();
     bindEvents();
     switchTab("today");
-    // 数据这时才算加载完，让宠物按累计训练次数决定角有多长
+    // 小宠物暂缓上线（js/pet.js 保留着），恢复时把这行和 index.html 里的容器一起加回来
     if (window.Pet) window.Pet.render();
     if ("serviceWorker" in navigator) {
       // 新版本就绪后**不再自动重载**：那样页面会突然闪一下，用户既不知道发生了什么，
