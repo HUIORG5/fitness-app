@@ -48,8 +48,8 @@
   --card:#ffffff;
   --card-2:#faf7f2;
   --text:#191815;
-  --text-2:#8a8578;
-  --text-3:#cbc6ba;
+  --text-2:#6f6a5e;
+  --text-3:#b8b2a4;
   --sep:rgba(25,24,21,.12);
   --blue:#1c1a17;
   --blue-soft:rgba(28,26,23,.07);
@@ -70,8 +70,8 @@
   --card:#ffffff;
   --card-2:#f7f9fb;
   --text:#0f1720;
-  --text-2:#7d8a96;
-  --text-3:#c3ccd4;
+  --text-2:#68727d;
+  --text-3:#b3bdc6;
   --sep:rgba(15,23,32,.12);
   --blue:#1f3a5f;
   --blue-soft:rgba(31,58,95,.1);
@@ -92,8 +92,8 @@
   --card:#ffffff;
   --card-2:#fafafa;
   --text:#121214;
-  --text-2:#82828a;
-  --text-3:#c8c8cd;
+  --text-2:#6d6d75;
+  --text-3:#b6b6bd;
   --sep:rgba(18,18,20,.12);
   --blue:#1b1b1f;
   --blue-soft:rgba(27,27,31,.07);
@@ -114,8 +114,8 @@
   --card:#1e1c1a;
   --card-2:#26231f;
   --text:#f2efe7;
-  --text-2:#9a9488;
-  --text-3:#4a463f;
+  --text-2:#b0a99c;
+  --text-3:#5a554c;
   --sep:rgba(242,239,231,.14);
   --blue:#a07b4d;
   --blue-soft:rgba(160,123,77,.18);
@@ -134,8 +134,8 @@
   --card:#151c24;
   --card-2:#1c242e;
   --text:#eaf0f6;
-  --text-2:#8b98a6;
-  --text-3:#3d4a58;
+  --text-2:#9daab8;
+  --text-3:#4d5b6a;
   --sep:rgba(234,240,246,.14);
   --blue:#52749e;
   --blue-soft:rgba(82,116,158,.22);
@@ -154,8 +154,8 @@
   --card:#1a1a1d;
   --card-2:#232327;
   --text:#f0f0f2;
-  --text-2:#8b8b93;
-  --text-3:#44444b;
+  --text-2:#a0a0a8;
+  --text-3:#54545c;
   --sep:rgba(240,240,242,.13);
   --blue:#ab6247;
   --blue-soft:rgba(171,98,71,.2);
@@ -263,6 +263,8 @@ svg{display:block;}
 /* overlay 标题栏第三格占位，让标题真正居中 */
 .overlay-nav .nav-spacer{width:52px;flex:none;}
 .list{background:var(--card);border-radius:18px;box-shadow:var(--shadow);overflow:hidden;}
+/* 两个紧挨着的列表要留缝，否则两张白卡看起来像糊成一整块 */
+.list + .list{margin-top:10px;}
 .row{
   display:flex;align-items:center;gap:12px;width:100%;text-align:left;
   padding:13px 16px;font-size:16px;color:var(--text);
@@ -696,7 +698,7 @@ svg{display:block;}
 .alert-btn.danger{color:var(--red);font-weight:700;}
 
 /* ---------- 配色选择 ---------- */
-.palette-wrap{padding:16px 10px 14px;}
+.palette-wrap{padding:16px 10px 12px;}
 .palette-row{display:flex;gap:6px;}
 .palette-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;padding:0;min-width:0;}
 /* 色卡：底色 + 一张白色卡片 + 一个主色点，一眼能看出这套配色的三层关系 */
@@ -706,7 +708,8 @@ svg{display:block;}
 .pchip-card{position:absolute;left:9px;top:9px;width:21px;height:21px;border-radius:7px;background:#fff;
   box-shadow:0 1px 3px rgba(0,0,0,.14);}
 .pchip-dot{position:absolute;right:7px;bottom:7px;width:11px;height:11px;border-radius:50%;background:var(--pa);}
-.palette-item.active .pchip{box-shadow:inset 0 0 0 .5px rgba(0,0,0,.1),0 0 0 2px var(--blue);}
+/* 选中环用成绩色：跟色卡上的小圆点同色，墨黑主题下也不会变成一圈粗黑边 */
+.palette-item.active .pchip{box-shadow:inset 0 0 0 .5px rgba(0,0,0,.1),0 0 0 2.5px var(--accent);}
 .palette-name{font-size:12px;font-weight:600;color:var(--text-2);}
 .palette-item.active .palette-name{color:var(--text);}
 
@@ -725,7 +728,8 @@ svg{display:block;}
 }
 #pull-hint.show{opacity:1;}
 /* 拉到阈值：整条变蓝，明确告诉用户「可以松手了」 */
-#pull-hint.ready{background:var(--blue);color:#fff;box-shadow:0 6px 20px rgba(0,122,255,.34);}
+/* 到阈值用成绩色：墨黑主题下 --blue 是近黑，胶囊会变成「又一条黑条」看不出变化 */
+#pull-hint.ready{background:var(--accent);color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.22);}
 .ph-ico{font-size:14px;font-weight:800;line-height:1;display:inline-block;}
 #pull-hint.busy .ph-ico{animation:phspin .9s linear infinite;}
 @keyframes phspin{to{transform:rotate(360deg);}}

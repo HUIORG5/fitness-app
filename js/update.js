@@ -10,8 +10,9 @@
   "use strict";
 
   const FROM_KEY = "tieji.updateFrom";
-  const TRIGGER = 58;   // 阻尼后拉过这个距离，松手就更新
+  const TRIGGER = 92;   // 阻尼后拉过这个距离，松手才更新（手指约 150px，明显是「刻意拉」）
   const DAMP = 0.62;    // 阻尼系数：手指拉 100px，提示条按 62px 计算
+  const ARM = 14;       // 位移超过这么多才认作「在往下拉」，避免轻碰就冒提示
 
   let startY = 0;
   let dragged = 0;
@@ -43,7 +44,7 @@
     const sc = activeScreen();
     if (sc && offset > 0) {
       sc.style.transition = "none";
-      sc.style.transform = "translateY(" + Math.min(62, offset).toFixed(1) + "px)";
+      sc.style.transform = "translateY(" + Math.min(74, offset).toFixed(1) + "px)";
     }
   }
   function speak(text, state) {
@@ -99,7 +100,7 @@
     // 拉到一半页面自己开始滚了（比如从顶部往下拽时内容在动），交还给原生滚动
     if (sc && sc.scrollTop > 0) { reset(); return; }
     // 先观察一小段，确认是「往下拉」再接管，否则会把正常点击/横滑也吃掉
-    if (!pulling && d < 6) return;
+    if (!pulling && d < ARM) return;
     pulling = true;
     dragged = Math.min(d, 190);
     if (e.cancelable) e.preventDefault();
