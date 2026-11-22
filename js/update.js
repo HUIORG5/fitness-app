@@ -163,18 +163,30 @@
     const cur = currentVersion();
     const box = byId("upd-backdrop");
     if (!box) return;
-    const changed = !!from && from !== cur;
+
+    // 版本没变：不弹整张卡，一条 toast 就够（弹窗留着说「这次改了什么」）
+    if (!from || from === cur) {
+      const tip = "已经是最新版本 " + cur;
+      if (typeof window.appToast === "function") { window.appToast(tip); return; }
+      // 极端情况：toast 没就绪，退回弹框，但文案要说清是「没有更新」而不是「已更新」
+      byId("upd-title").textContent = "已经是最新版本";
+      byId("upd-sub").textContent = cur;
+      byId("upd-ico").textContent = "i";
+      box.classList.add("nochange");
+      byId("upd-list").style.display = "none";
+      box.classList.add("show");
+      return;
+    }
+
     const entry = entryFor(cur);
-    byId("upd-title").textContent = changed ? "已更新到 " + cur : "已经是最新版本";
-    byId("upd-sub").textContent = changed
-      ? from + " → " + cur + (entry && entry.at ? " · " + entry.at : "")
-      : cur + " · 没发现更新的版本，过几天再来试试";
-    byId("upd-ico").textContent = changed ? "✓" : "i";
-    box.classList.toggle("nochange", !changed);
+    byId("upd-title").textContent = "已更新到 " + cur;
+    byId("upd-sub").textContent = from + " → " + cur + (entry && entry.at ? " · " + entry.at : "");
+    byId("upd-ico").textContent = "✓";
+    box.classList.remove("nochange");
 
     const ul = byId("upd-list");
     ul.innerHTML = "";
-    const items = changed && entry && entry.items ? entry.items : [];
+    const items = entry && entry.items ? entry.items : [];
     items.forEach((text) => {
       const li = document.createElement("li");
       li.textContent = text;
