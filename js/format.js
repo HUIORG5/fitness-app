@@ -91,15 +91,27 @@
   }
   // 同一个动作里，某个重量出现了几次。返回每组的序号（1,2,3…），
   // 只出现一次的重量返回 0 不标——否则一堆互不相同的组都挂个 ×1，反而更乱。
+  /* 一组数据是否「一模一样」：重量、次数、时长都相同才算同一组。
+     只看重量是不够的——20×8 和 20×14 显然是两组不同的练习。 */
+  function sameSet(a, b) {
+    return (a.kg || 0) === (b.kg || 0) &&
+      (a.reps || 0) === (b.reps || 0) &&
+      (a.sec || 0) === (b.sec || 0);
+  }
+  /* 给「连续重复」的组编号：只有紧挨着、数据完全相同的组才标 ×1 ×2 ×3。
+     原来按「同重量总数」编号，会出现第 1 组 ×1、第 6 组 ×2 这种隔着老远的编号，
+     而且 30kg 从第 2 组重新从 ×1 开始，一眼看过去全是 ×1、分不清。 */
   function repIdxOf(sets) {
-    const total = {}, seen = {};
-    sets.forEach((s) => { const k = s.kg || 0; total[k] = (total[k] || 0) + 1; });
-    return sets.map((s) => {
-      const k = s.kg || 0;
-      if (total[k] < 2) return 0;
-      seen[k] = (seen[k] || 0) + 1;
-      return seen[k];
-    });
+    const out = sets.map(() => 0);
+    let i = 0;
+    while (i < sets.length) {
+      let j = i + 1;
+      while (j < sets.length && sameSet(sets[j], sets[i])) j++;
+      const n = j - i;
+      if (n > 1) for (let k = 0; k < n; k++) out[i + k] = k + 1;
+      i = j;
+    }
+    return out;
   }
 
   // 这次训练里所有组的时长之和（秒）——纯有氧的日子用它代替容量
